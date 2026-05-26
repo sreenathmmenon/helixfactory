@@ -187,13 +187,25 @@ the agent MUST stop and flag the violation before continuing.
 The following files MUST NOT be recreated, overwritten, or deleted by the agent
 during feature implementation:
 
-- `speckit.constitution.md`
 - Any `speckit.specify.md` file under any `specs/` folder
 - Any `speckit.plan.md` file under any `specs/` folder
 - Any `speckit.tasks.md` file under any `specs/` folder
+- `speckit.constitution.md` (project root reference copy)
+- `.specify/memory/constitution.md` (the live constitution Codex reads)
 
 If the agent cannot find one of these files when required, it MUST stop and
 report the missing file. It MUST NOT create a replacement.
+
+The agent MUST NOT create markdown files outside these allowed locations:
+
+- `.specify/memory/` — constitution only
+- `specs/001-*/` — spec, plan, tasks, checklist for that feature
+- `specs/002-*/` — and so on per feature
+- `backend/` — Python source files only
+- `frontend/src/` — React/JS files only
+
+Any markdown file created outside these locations is a violation.
+The agent MUST ask before creating any file not explicitly required by the current task.
 
 ### Rule 4. Decision Log in Every Spec
 
@@ -207,6 +219,9 @@ re-derivation.
 Before running any command, the agent MUST verify the current directory.
 Backend commands MUST run from `backend/`. Frontend commands MUST run from
 `frontend/`. Backend and frontend commands MUST NOT run from the project root.
+
+Spec files MUST only be written inside `specs/` subfolders. 
+Never write spec files to the project root or backend/ or frontend/.
 
 ### Rule 6. Command Timeout Rule
 
