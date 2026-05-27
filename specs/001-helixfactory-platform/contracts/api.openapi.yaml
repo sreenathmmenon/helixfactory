@@ -1,0 +1,568 @@
+openapi: 3.1.0
+info:
+  title: HelixFactory Platform API
+  version: 0.1.0
+  description: >
+    Contract for the week-one HelixFactory slice: repository ingestion,
+    contextual graph queries, pre-mortem, blast radius, architecture Q&A, and
+    audit evidence.
+paths:
+  /repositories/ingest:
+    post:
+      summary: Start repository ingestion
+      operationId: startRepositoryIngestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestRepositoryRequest'
+      responses:
+        '202':
+          description: Ingestion accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+  /repositories/{repositoryId}:
+    get:
+      summary: Get repository ingestion status
+      operationId: getRepository
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: Repository status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+  /graph/query:
+    post:
+      summary: Query the contextual twin graph
+      operationId: queryGraph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphQueryRequest'
+      responses:
+        '200':
+          description: Contextual graph view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphView'
+  /graph/path:
+    post:
+      summary: Explain the evidence path between two twin nodes
+      operationId: explainGraphPath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphPathRequest'
+      responses:
+        '200':
+          description: Evidence-backed path explanation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphPath'
+  /changes/premortem:
+    post:
+      summary: Run evidence-backed pre-mortem
+      operationId: runPreMortem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreMortemRequest'
+      responses:
+        '200':
+          description: Pre-mortem result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreMortemResult'
+  /changes/blast-radius:
+    post:
+      summary: Calculate contextual blast radius
+      operationId: calculateBlastRadius
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlastRadiusRequest'
+      responses:
+        '200':
+          description: Blast radius graph
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphView'
+  /qa/architecture:
+    post:
+      summary: Ask architecture questions against the twin
+      operationId: askArchitectureQuestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchitectureQuestionRequest'
+      responses:
+        '200':
+          description: Cited architecture answer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchitectureAnswer'
+  /qa/node-context:
+    post:
+      summary: Load relationship intelligence for one twin node
+      operationId: getNodeContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeContextRequest'
+      responses:
+        '200':
+          description: Node relationship context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeContext'
+  /qa/node-source:
+    post:
+      summary: Load source evidence for one twin node
+      operationId: getNodeSource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeSourceRequest'
+      responses:
+        '200':
+          description: Node source snippet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeSource'
+  /audit/evidence-package:
+    post:
+      summary: Generate audit evidence package
+      operationId: generateEvidencePackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvidencePackageRequest'
+      responses:
+        '200':
+          description: Evidence package
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidencePackage'
+components:
+  parameters:
+    RepositoryId:
+      name: repositoryId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    IngestRepositoryRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        branch:
+          type: string
+        label:
+          type: string
+    Repository:
+      type: object
+      required: [id, url, ingestionStatus, supportedLanguages]
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          format: uri
+        ingestionStatus:
+          type: string
+          enum: [pending, in_progress, partial, complete, failed]
+        supportedLanguages:
+          type: array
+          items:
+            type: string
+            enum: [python, typescript, javascript]
+        lastIngestedCommit:
+          type: string
+        nodeCount:
+          type: integer
+          minimum: 0
+        edgeCount:
+          type: integer
+          minimum: 0
+        failureReason:
+          type: string
+    GraphQueryRequest:
+      type: object
+      required: [repositoryId, center]
+      properties:
+        repositoryId:
+          type: string
+        center:
+          $ref: '#/components/schemas/GraphCenter'
+        depth:
+          type: integer
+          minimum: 1
+          maximum: 4
+          default: 2
+        relationshipTypes:
+          type: array
+          items:
+            type: string
+    GraphPathRequest:
+      type: object
+      required: [repositoryId, sourceNodeId, targetNodeId]
+      properties:
+        repositoryId:
+          type: string
+        sourceNodeId:
+          type: string
+        targetNodeId:
+          type: string
+        relationshipTypes:
+          type: array
+          items:
+            type: string
+        maxDepth:
+          type: integer
+          minimum: 1
+          maximum: 6
+    GraphCenter:
+      type: object
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum: [query, node, proposed_change]
+        value:
+          type: string
+    GraphView:
+      type: object
+      required: [center, nodes, edges, depth, riskSummary]
+      properties:
+        center:
+          $ref: '#/components/schemas/GraphCenter'
+        depth:
+          type: integer
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphEdge'
+        riskSummary:
+          type: object
+          additionalProperties:
+            type: integer
+    GraphNode:
+      type: object
+      required: [id, type, name, risk]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+        startLine:
+          type: integer
+        endLine:
+          type: integer
+        owner:
+          type: string
+        risk:
+          type: string
+          enum: [none, low, medium, high, critical]
+    GraphEdge:
+      type: object
+      required: [id, source, target, type, confidence]
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        type:
+          type: string
+        confidence:
+          type: string
+          enum: [exact, inferred, partial]
+        evidencePath:
+          type: string
+        evidenceLine:
+          type: integer
+    NodeContextRequest:
+      type: object
+      required: [repositoryId, nodeId]
+      properties:
+        repositoryId:
+          type: string
+        nodeId:
+          type: string
+    NodeSourceRequest:
+      type: object
+      required: [repositoryId, nodeId]
+      properties:
+        repositoryId:
+          type: string
+        nodeId:
+          type: string
+    NodeSource:
+      type: object
+      required: [nodeId, snippet]
+      properties:
+        nodeId:
+          type: string
+        path:
+          type: string
+        startLine:
+          type: integer
+        endLine:
+          type: integer
+        language:
+          type: string
+        snippet:
+          type: string
+        unavailableReason:
+          type: string
+    NodeRelationshipGroup:
+      type: object
+      required: [relationship, direction, nodes, edges]
+      properties:
+        relationship:
+          type: string
+        direction:
+          type: string
+          enum: [incoming, outgoing]
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphEdge'
+    NodeContext:
+      type: object
+      required: [node, relationshipGroups, evidenceEdges]
+      properties:
+        node:
+          $ref: '#/components/schemas/GraphNode'
+        relationshipGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeRelationshipGroup'
+        evidenceEdges:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphEdge'
+    GraphPath:
+      type: object
+      required: [source, target, nodes, edges, explanation, confidence]
+      properties:
+        source:
+          $ref: '#/components/schemas/GraphNode'
+        target:
+          $ref: '#/components/schemas/GraphNode'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphEdge'
+        explanation:
+          type: string
+        confidence:
+          type: string
+          enum: [exact, inferred, partial]
+    PreMortemRequest:
+      type: object
+      required: [repositoryId, summary, changeType, targetRefs]
+      properties:
+        repositoryId:
+          type: string
+        summary:
+          type: string
+        changeType:
+          type: string
+          enum: [add, modify, rename, delete, database, interface, infrastructure, dependency]
+        targetRefs:
+          type: array
+          items:
+            type: string
+    PreMortemResult:
+      type: object
+      required: [changeId, riskStatus, findings, evidenceGaps, auditRecordId]
+      properties:
+        changeId:
+          type: string
+        riskStatus:
+          type: string
+          enum: [low, medium, high, critical]
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreMortemFinding'
+        evidenceGaps:
+          type: array
+          items:
+            type: string
+        requiresHumanApproval:
+          type: boolean
+        auditRecordId:
+          type: string
+    PreMortemFinding:
+      type: object
+      required: [id, severity, title, consequence, filePath, line, dependencyChain, preventiveCheck]
+      properties:
+        id:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        title:
+          type: string
+        consequence:
+          type: string
+        filePath:
+          type: string
+        line:
+          type: integer
+        dependencyChain:
+          type: array
+          items:
+            type: string
+        ownerContext:
+          type: string
+        preventiveCheck:
+          type: string
+    BlastRadiusRequest:
+      allOf:
+        - $ref: '#/components/schemas/PreMortemRequest'
+        - type: object
+          properties:
+            depth:
+              type: integer
+              minimum: 1
+              maximum: 4
+            relationshipTypes:
+              type: array
+              items:
+                type: string
+    ArchitectureQuestionRequest:
+      type: object
+      required: [repositoryId, question]
+      properties:
+        repositoryId:
+          type: string
+        question:
+          type: string
+        contextNodeId:
+          type: string
+    ArchitectureAnswer:
+      type: object
+      required: [answer, citations, uncertainty]
+      properties:
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        uncertainty:
+          type: array
+          items:
+            type: string
+    Citation:
+      type: object
+      required: [sourceType, sourceRef]
+      properties:
+        sourceType:
+          type: string
+        sourceRef:
+          type: string
+        path:
+          type: string
+        line:
+          type: integer
+    EvidencePackageRequest:
+      type: object
+      properties:
+        repositoryId:
+          type: string
+        dateFrom:
+          type: string
+          format: date
+        dateTo:
+          type: string
+          format: date
+        riskLevels:
+          type: array
+          items:
+            type: string
+            enum: [low, medium, high, critical]
+        dataSensitivity:
+          type: string
+    EvidencePackage:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditRecord'
+    AuditRecord:
+      type: object
+      required: [id, actionType, actor, subjectRef, result, timestamp, gitCommit]
+      properties:
+        id:
+          type: string
+        actionType:
+          type: string
+        actor:
+          type: string
+        subjectRef:
+          type: string
+        result:
+          type: string
+          enum: [success, partial, blocked, failed]
+        timestamp:
+          type: string
+          format: date-time
+        gitCommit:
+          type: string

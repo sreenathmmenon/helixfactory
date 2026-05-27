@@ -1,0 +1,600 @@
+HelixFactory Project Dossier
+Generated: 2026-05-27
+
+1. Executive Summary
+
+HelixFactory is an AI-native software factory for enterprise engineering teams.
+Its core promise is simple: before an engineer or AI agent changes code, the
+platform should understand the codebase, predict what can fail, show blast
+radius, enforce human gates for high-risk work, record proof in git, and learn
+codebase-specific lessons from every execution.
+
+The product is not intended to be a generic chatbot, code browser, or toy graph.
+The target is an enterprise-grade engineering intelligence and governance
+platform that sits between code, tickets, pull requests, AI agents, reviewers,
+security stakeholders, and audit/compliance teams.
+
+2. Original Aim
+
+The original aim was to build the week-one HelixFactory slice proving the full
+platform thesis end to end:
+
+- Ingest a real public repository.
+- Build a living code digital twin.
+- Query that twin through graph and plain English workflows.
+- Run evidence-backed pre-mortems before change begins.
+- Visualize blast radius as a contextual graph, never full universe.
+- Govern ticket-to-PR style agent execution.
+- Require human approval for HIGH and CRITICAL risk.
+- Preserve all platform actions as git-native audit evidence.
+- Provide architecture Q&A with citations and uncertainty.
+- Propose codebase-specific skill refinements after execution outcomes.
+
+The deeper product ambition is to compete with and exceed tools such as
+Sourcegraph, GitNexus, graph-based code explorers, AI coding agents, and
+compliance workflow tools by combining code intelligence, risk prediction,
+execution governance, auditability, and self-learning in one product.
+
+3. Target Users
+
+Primary users:
+
+- Staff engineers and architects who need to understand blast radius before
+  approving or implementing changes.
+- Engineering managers who want safe AI-assisted delivery, not uncontrolled
+  automation.
+- Platform teams that need traceability for AI-assisted code changes.
+- Security and compliance teams that need proof of what happened, why it
+  happened, what risk was known, and who approved it.
+- New engineers who need to understand why a system works the way it does.
+
+Enterprise buyer expectations:
+
+- Clear workflow, not a demo screen.
+- Cited evidence, not vague AI claims.
+- Real codebase support, not toy examples.
+- No raw JSON or stack traces in UI.
+- Audit records that survive vendor/tool changes.
+- Human gates on risky work.
+- BYOK AI support so enterprises can use their own model/account boundary.
+- Strong visual design, readable typography, and no broken layout states.
+
+4. Product Pillars
+
+4.1 Living Code Digital Twin
+
+Purpose:
+Build a queryable model of the codebase with files, functions, classes,
+dependencies, ownership, line ranges, entry points, and relationship evidence.
+
+Current implementation:
+- Backend ingestion exists.
+- Python, TypeScript, and JavaScript scope exists.
+- Tree-sitter based parser adapters exist.
+- Repository loader filters noisy directories and test/vendor files.
+- Twin builder creates nodes and edges.
+- Ownership enrichment exists with fallback.
+- NetworkX JSON graph persistence exists.
+- Repository ingestion API exists.
+- Frontend ingestion page exists.
+
+Current status:
+Functional week-one implementation exists and backend tests pass. It is not yet
+an enterprise-scale twin with incremental updates, semantic data-flow analysis,
+cross-repository topology, schema lineage, runtime traces, or deep ownership
+from codeowners/org systems.
+
+Production gap:
+- Need incremental re-ingestion and graph diff.
+- Need stronger relationship taxonomy: data flow, events, runtime dependency,
+  infra, schema, API contract, feature flag, and config relationships.
+- Need large-repo performance budgets and indexing.
+- Need visible ingestion progress per stage and per file class.
+- Need codeowners/team ownership integration.
+
+4.2 Change Pre-Mortem
+
+Purpose:
+Predict failure before implementation begins. Every finding must be evidence
+backed and cite severity, file path, line, dependency chain, owner context, and
+preventive check.
+
+Current implementation:
+- Proposed change resolver exists.
+- Pre-mortem service exists.
+- Evidence-backed findings model exists.
+- Evidence gaps are surfaced.
+- HIGH and CRITICAL findings block auto-approval through approval gates.
+- Frontend pre-mortem surface exists.
+- Audit commits for pre-mortem exist.
+
+Current status:
+Functional for week-one. The system can produce structured findings and gaps,
+but depth of prediction is still limited by the current graph evidence and
+heuristics around risk.
+
+Production gap:
+- Need more precise AST and call-chain evidence.
+- Need richer owner context.
+- Need preventive checks tied to actual test files, commands, and CI jobs.
+- Need confidence and evidence strength model.
+- Need pre-mortem comparison across similar historical changes.
+- Need a stronger "no evidence, no finding" enforcement UX.
+
+4.3 Blast Radius and Graph Exploration
+
+Purpose:
+Help engineers understand direct and transitive impact before review. Graph must
+be contextual, centered, depth controlled, and useful for exploration.
+
+Current implementation:
+- Backend graph query service exists.
+- Backend blast radius service exists.
+- Depth-limited centered traversal exists.
+- Overview and ask-graph endpoints exist.
+- Frontend graph was rewritten to D3 force/SVG.
+- Node click now re-queries backend centered on that node.
+- Hover dims unrelated nodes and highlights connected edges.
+- Empty graph placeholder was fixed.
+- Status bar now uses node/query label, not UUID.
+- Depth supports 1 through 4.
+- Minimap and zoom/fit controls exist.
+
+Current status:
+Improved, but still not yet competitor-grade. The graph is now more correct
+functionally, but the exploration experience still needs deeper product design.
+
+Production gap:
+- Need live browser verification after sandbox limitations are resolved.
+- Need search that feels instant and does not query on every keystroke.
+- Need better graph clustering, labels, density management, and collision.
+- Need edge filtering UI by relationship type.
+- Need clear legend, severity overlays, and finding-to-node linking.
+- Need graph snapshots, graph diff, and path explanation.
+- Need performance validation on large real repositories.
+
+4.4 Governed Ticket-to-PR Execution
+
+Purpose:
+Move low-risk work through context collection, risk checks, security/review
+gates, execution boundary, and audit evidence.
+
+Current implementation:
+- Execution state machine exists.
+- Context collector exists.
+- Execution orchestrator boundary exists.
+- Approval gate service exists.
+- Execution API exists.
+- Frontend execution page exists.
+- UI validates empty work summary and clears stale state on resubmit.
+
+Current status:
+Modeled and demoable as a governed workflow boundary. It does not yet perform
+real autonomous code changes or open real pull requests end to end.
+
+Production gap:
+- Need real ticket integration.
+- Need real branch/PR creation.
+- Need CI/test execution integration.
+- Need reviewer fleet with evidence-backed comments.
+- Need explicit approval UX and RBAC.
+- Need "why blocked" and "how to unblock" workflow.
+
+4.5 Audit Evidence and Compliance
+
+Purpose:
+Every platform action should produce a durable, reviewable record. Git is the
+source of truth for audit history.
+
+Current implementation:
+- Audit record model exists.
+- Git audit commit service exists.
+- Audit query service exists.
+- Evidence package builder exists.
+- Audit API exists.
+- Frontend audit page shows readable records.
+- Ingestion, pre-mortem, graph, blast radius, Q&A, execution, and skills paths
+  have audit-writing integration.
+
+Current status:
+Strong week-one differentiator. Current UI is readable but still needs richer
+filters and stronger chronological evidence package navigation.
+
+Production gap:
+- Need full chronological chain view per change: pre-mortem -> blast radius ->
+  approval -> execution -> review -> tests -> PR -> merge.
+- Need compliance filters: owner, risk, regulated data, date range, approver.
+- Need exportable evidence bundle.
+- Need tamper-evidence explanation in UI.
+- Need audit recovery/error handling visible to operators.
+
+4.6 Architecture Q&A and Memory
+
+Purpose:
+Answer plain English questions using twin evidence, with citations and explicit
+uncertainty when evidence is incomplete.
+
+Current implementation:
+- Q&A service exists.
+- Knowledge source placeholder model exists.
+- Architecture answer API exists.
+- Node summary API exists.
+- BYOK AI provider boundary exists for Anthropic.
+- Frontend Q&A and Memory pages exist.
+- Empty input validation and stale answer clearing were added.
+
+Current status:
+Useful but early. It can cite graph/code evidence, but does not yet ingest rich
+external memory such as PRs, tickets, ADRs, Slack/Docs, incidents, or decisions.
+
+Production gap:
+- Need connectors for GitHub PRs/issues, Jira/Linear, docs, ADRs, incidents.
+- Need source freshness and conflict handling.
+- Need answer mode separation: "known", "inferred", "unknown".
+- Need node-specific summaries and call-chain explanations in the graph panel.
+- Need semantic search/indexing instead of simple graph heuristics alone.
+
+4.7 Self-Learning / Skills
+
+Purpose:
+After execution outcomes, propose team-specific refinements with evidence refs.
+Generic refinements must be rejected.
+
+Current implementation:
+- Skill refinement validation exists.
+- Reflection service exists.
+- Propose, approve, reject API exists.
+- Audit commits for skill decisions exist.
+- Frontend skills page exists.
+- UI now blocks empty/generic proposals without evidence refs before backend.
+
+Current status:
+Demoable as a review workflow. It is not yet a closed-loop agent improvement
+system with measurable before/after behavior.
+
+Production gap:
+- Need actual execution outcome analysis.
+- Need refinement categories and impact scoring.
+- Need reviewer assignment and approval history.
+- Need safe rollout/versioning of approved skills.
+- Need proof that refinements changed future agent behavior.
+
+4.8 Security and Review Gates
+
+Purpose:
+Specialized gates should catch security, performance, quality, and test
+evidence issues before PR approval.
+
+Current implementation:
+- Security page exists using pre-mortem style evaluation.
+- Review page exists using execution/gate boundary.
+- Approval gate enforcement exists for high risk.
+- UI now validates empty inputs and labels key controls.
+
+Current status:
+Modeled but shallow. These are workflow surfaces, not yet full enterprise
+security/review engines.
+
+Production gap:
+- Need secret/data-flow scanning.
+- Need auth, PII, regulated-data, and permission boundary models.
+- Need reviewer lanes with actual evidence-backed checks.
+- Need integration with CI, SAST, dependency scanning, and code owners.
+
+5. Current Feature Status
+
+Status key:
+- DONE: Implemented and validated for week-one scope.
+- PARTIAL: Implemented but shallow or not enterprise complete.
+- GAP: Required for competitor-grade product, not yet implemented.
+
+Feature                                      Status
+------------------------------------------------------------
+Backend FastAPI shell                         DONE
+Structured API error handling                 PARTIAL
+Repository ingestion                          DONE
+Partial ingestion handling                    DONE
+Tree-sitter parser adapters                   DONE
+Noise/test/vendor filtering                   DONE
+Living twin persistence                       DONE
+Entry point detection                         PARTIAL
+Graph query centered subgraph                 DONE
+Graph overview                                DONE
+Graph ask endpoint                            PARTIAL
+D3 graph UI                                   PARTIAL
+Node click backend recenter                   DONE
+Hover illuminate/dim                          DONE
+Depth control                                 DONE
+Graph search/ask UX                           PARTIAL
+Blast radius service                          DONE
+Blast radius ripple UX                        PARTIAL
+Pre-mortem findings                           DONE
+Evidence suppression                          PARTIAL
+Human gate for HIGH/CRITICAL                  DONE
+Governed execution boundary                   PARTIAL
+Real code execution/PR creation               GAP
+Audit records                                 DONE
+Git audit commits                             DONE
+Evidence package page                         PARTIAL
+Architecture Q&A                              PARTIAL
+Node summaries                                PARTIAL
+Organizational memory connectors              GAP
+BYOK Anthropic AI provider                    DONE
+Settings page for BYOK                        GAP by decision: backend/.env only for now
+Security gates                                PARTIAL
+Reviewer fleet                                PARTIAL
+Self-learning skill refinements               PARTIAL
+Enterprise visual design                      PARTIAL
+End-to-end browser validation                 PARTIAL due Codex sandbox limits
+Backend test validation                       DONE: 30 passed
+Frontend build validation                     DONE
+Frontend component validation                 DONE
+Frontend Playwright suite                     PARTIAL: user environment passed earlier; Codex browser blocked
+
+6. What Changed Recently
+
+Recent improvement passes focused on the frontend and graph experience:
+
+- Home page was changed from a giant marketing-style hero into a more compact
+  operational control plane.
+- Global shell density was reduced: smaller sidebar, tighter spacing, smaller
+  card radii, better page hierarchy.
+- Graph placeholder was fixed. The previous placeholder looked broken because
+  canvas SVG styling affected the empty-state icon.
+- Graph node click now re-queries backend centered on the selected node.
+- Graph status bar now shows centered label and depth.
+- Graph depth now supports 1 through 4.
+- Graph breadcrumb was made clickable.
+- Graph minimap/controls are hidden until graph data exists.
+- Graph stale response protection was added.
+- Cross-page input validation was added for ingest, Q&A, execution, review,
+  security, memory, and skills.
+- Several stale-result behaviors were fixed so old outputs disappear when a new
+  run starts.
+- Review, Security, and Memory pages received missing accessibility labels.
+- Disabled graph buttons now visibly look disabled.
+
+7. Validation Status
+
+Latest validation run from Codex:
+
+- Frontend production build: passed with npm run build.
+- Frontend component test: passed with npm test -- --run.
+- Backend tests: passed with pytest -q, 30 tests passing.
+
+Known validation limitation:
+
+Codex sandbox currently cannot launch Chromium due macOS
+MachPortRendezvousServer permission errors, and cannot bind a dev backend on
+127.0.0.1:8000 in the sandbox. The user environment previously ran Playwright
+successfully. Full browser validation should be repeated from the user's local
+terminal or after sandbox permissions allow browser/server processes.
+
+8. Architecture Diagram
+
+High-level system architecture:
+
+                 +--------------------------------------+
+                 |              User / Team             |
+                 | Engineers, architects, security, EMs |
+                 +------------------+-------------------+
+                                    |
+                                    v
+       +---------------------------------------------------------+
+       |                    React Frontend                       |
+       |                                                         |
+       |  Home / Ingest / Twin Graph / Pre-mortem / Execution    |
+       |  Q&A / Review / Security / Audit / History / Memory     |
+       |  Skills                                                 |
+       +--------------------------+------------------------------+
+                                  |
+                                  | JSON API
+                                  v
+       +---------------------------------------------------------+
+       |                    FastAPI Backend                      |
+       |                                                         |
+       |  API routes:                                            |
+       |  /repositories, /graph, /changes, /qa, /audit,          |
+       |  /executions, /skill-refinements, /ai                  |
+       +--------------------------+------------------------------+
+                                  |
+          +-----------------------+-----------------------+
+          |                       |                       |
+          v                       v                       v
+ +------------------+    +--------------------+    +-------------------+
+ | Ingestion Engine |    | Graph/Twin Engine  |    | AI Provider Layer |
+ |                  |    |                    |    |                   |
+ | clone/filter     |    | NetworkX graph     |    | Anthropic BYOK    |
+ | tree-sitter AST  |    | centered traversal |    | summaries/Q&A     |
+ | ownership        |    | overview/query     |    | guarded fallback  |
+ +--------+---------+    +---------+----------+    +---------+---------+
+          |                        |                         |
+          v                        v                         v
+ +------------------+    +--------------------+    +-------------------+
+ | Parsed Code Twin |    | Risk/Blast Radius  |    | Q&A / Node Summary|
+ | files/functions  |    | pre-mortem         |    | citations         |
+ | classes/imports  |    | impact graph       |    | uncertainty       |
+ | entry points     |    | approval gates     |    | memory placeholders|
+ +--------+---------+    +---------+----------+    +---------+---------+
+          |                        |                         |
+          +------------------------+-------------------------+
+                                   |
+                                   v
+        +------------------------------------------------------+
+        |                  Audit / Evidence Layer              |
+        |                                                      |
+        |  Structured audit records + GitPython audit commits  |
+        |  Evidence package / chronological proof chain        |
+        +--------------------------+---------------------------+
+                                   |
+                                   v
+        +------------------------------------------------------+
+        |                  Local Storage                       |
+        |                                                      |
+        |  cloned repos / graph JSON / audit repo / caches     |
+        +------------------------------------------------------+
+
+9. Competitive Position
+
+Compared with Sourcegraph:
+- Sourcegraph is strong at search, code navigation, and code intelligence.
+- HelixFactory aims to go beyond search by predicting risk, enforcing gates,
+  recording evidence, and improving agents over time.
+- Current gap: Sourcegraph-level code search, scale, indexing, and polish are
+  not yet reached.
+
+Compared with GitNexus / graph-oriented tools:
+- Graph tools are strong at visual topology and dependency exploration.
+- HelixFactory aims to combine graph exploration with change pre-mortem,
+  blast-radius risk, execution governance, and audit evidence.
+- Current gap: graph layout, search, clustering, path explanation, and large
+  graph performance need significant improvement.
+
+Compared with AI coding agents:
+- AI agents are strong at implementation speed.
+- HelixFactory's differentiator is governance: no code without context,
+  evidence, risk classification, approval gates, and audit trail.
+- Current gap: real autonomous execution and PR creation are still modeled, not
+  fully implemented.
+
+Compared with compliance/audit tools:
+- Compliance tools are strong at controls and reporting.
+- HelixFactory can be stronger if every engineering action is natively tied to
+  code evidence, graph impact, and git audit records.
+- Current gap: exportable evidence packages, RBAC, filters, and enterprise
+  retention controls are still needed.
+
+10. Next Roadmap to Beat Competitors
+
+Phase A: Make the Twin Enterprise-Real
+
+- Incremental re-ingestion on git diff.
+- Graph diff between commits/branches.
+- Codeowners/team ownership.
+- Cross-repository graph model.
+- Strong relationship taxonomy: calls, imports, extends, data_flow, event,
+  schema, API, infra, config, feature_flag, runtime_dependency.
+- Large repo indexing and performance tests.
+
+Phase B: Make Graph Exploration Best-in-Class
+
+- Instant search with debounce, cancellation, and local result preview.
+- Force layout quality tuning with clustering by file/module/service.
+- Relationship filters and legend.
+- Path explanation panel: "why are these nodes connected?"
+- Finding-to-node and node-to-finding links.
+- Graph snapshots and graph diff.
+- Large graph virtualization/performance budgets.
+- Browser screenshot validation across desktop/mobile.
+
+Phase C: Make Pre-Mortem Defensible
+
+- Finding confidence and evidence strength.
+- Preventive checks mapped to real tests/commands.
+- Similar historical change retrieval.
+- Owner and approver resolution.
+- Suppress every unsupported claim by default.
+- Dedicated "insufficient evidence" UX that tells the user what data is missing.
+
+Phase D: Make BYOK AI Real for Enterprises
+
+- Keep backend .env mode for now per decision.
+- Add provider abstraction tests for Anthropic/OpenAI/local later.
+- Add prompt/version audit records.
+- Add redaction policy before sending evidence to AI.
+- Add AI disabled fallback behavior in every workflow.
+- Later: settings page with encrypted key storage and org policy controls.
+
+Phase E: Make Governed Execution Real
+
+- Ticket integration: GitHub Issues, Jira, Linear.
+- Branch creation and PR creation.
+- Test command execution and CI evidence.
+- Reviewer lane outputs as evidence-backed comments.
+- Approval UI with accountable human reviewer.
+- Explicit blocked/unblocked workflow.
+
+Phase F: Make Audit a Board-Level Feature
+
+- Chronological evidence chain per change.
+- Exportable evidence package.
+- Filters by risk, owner, service, date, approver, regulated data.
+- Tamper-evidence explanation.
+- Audit failure recovery and partial evidence warnings.
+- Compliance dashboard for AI-assisted delivery.
+
+Phase G: Make Self-Learning Measurable
+
+- Reflection from real execution outcomes.
+- Skill versioning and rollout controls.
+- Before/after measurement: did the skill prevent repeat mistakes?
+- Human review queue with ownership.
+- Reject generic suggestions with evidence.
+- Skill impact dashboard.
+
+Phase H: Make the UI Feel Enterprise-Grade
+
+- Page-by-page design review in browser.
+- Stronger typography hierarchy.
+- Fewer bulky panels, more operational density.
+- No dead controls.
+- No invisible disabled states.
+- No clipped graph/placeholder elements.
+- No giant marketing sections inside workbench pages.
+- Every empty state gives next action.
+- Every error is human-readable and actionable.
+- Mobile layouts validated, not assumed.
+
+11. Current Truth
+
+HelixFactory now has a broad week-one platform foundation:
+
+- Backend services exist for ingestion, graph, pre-mortem, blast radius, Q&A,
+  audit, execution boundary, approval gates, and skill refinements.
+- Frontend pages exist for the major product surfaces.
+- BYOK AI through backend environment configuration exists.
+- Tests pass at the backend and frontend component/build level.
+
+However, it is not yet at the level where an enterprise buyer would evaluate it
+as a finished product. It is closer to a strong architectural prototype with
+several real differentiators. To become competitor-beating, the next work must
+focus less on adding more surfaces and more on making the core workflows deep,
+fast, evidence-rich, visually polished, and validated on real repositories.
+
+The most important next investment areas are:
+
+1. Twin quality and incremental updates.
+2. Graph exploration quality and performance.
+3. Defensible pre-mortem evidence.
+4. Real ticket-to-PR execution integration.
+5. Audit evidence chain depth.
+6. Enterprise browser-tested UX polish.
+7. Measurable self-learning from real outcomes.
+
+12. Recommended Immediate Next Sprint
+
+Sprint goal:
+Make the first 3-minute enterprise demo genuinely credible.
+
+Scope:
+
+- Ingest FastAPI or another real repo cleanly.
+- Show no tests/vendor noise in graph.
+- Open Twin overview with a readable graph.
+- Ask "What handles routing?" and show relevant nodes only.
+- Click a node and show centered subgraph plus useful node summary.
+- Run pre-mortem on a realistic change and show cited file/line/chain.
+- Show blast radius overlay on graph.
+- Generate evidence package showing chronological proof chain.
+- Show Skills page rejecting generic refinement and accepting specific one with
+  evidence.
+
+Definition of done:
+
+- Backend tests pass.
+- Frontend build passes.
+- Playwright passes from a real browser-enabled local environment.
+- Manual browser screenshots for Home, Ingest, Twin, Pre-mortem, Q&A, Audit,
+  Skills show no overlap, no dead controls, no clipped content, readable text,
+  and clear next action.
+- Demo completes in under 3 minutes.
