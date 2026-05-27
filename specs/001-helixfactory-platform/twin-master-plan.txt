@@ -1,0 +1,537 @@
+HelixFactory Twin Master Plan
+Generated: 2026-05-27
+
+Purpose
+-------
+This is the consolidated plan for making HelixFactory Twin a best-in-class,
+enterprise-grade code intelligence and risk exploration feature.
+
+This plan combines the earlier directions into one complete roadmap. The goal is
+not to build another graph toy. The goal is to build the product surface where
+engineering teams understand code, risk, ownership, impact, evidence, and AI
+safety before changing anything.
+
+North Star
+----------
+Twin should answer this in seconds:
+
+"If I touch this code, what does it do, what depends on it, what will break,
+why, who owns it, what evidence proves it, and can AI safely work here?"
+
+If Twin answers that better than Sourcegraph, GitNexus, CodeSee, CodeLogic, and
+Understand, it becomes the flagship feature.
+
+Product Positioning
+-------------------
+Competitors are strong individually:
+
+- Sourcegraph: search, code navigation, references, code browser.
+- GitNexus: graph-first code intelligence, symbol 360, hybrid search, impact.
+- CodeSee: codebase maps, review maps, annotations, tours, onboarding.
+- CodeLogic: impact analysis, dependency intelligence, technical debt scoring.
+- Understand: static analysis depth, graph modes, metrics, compliance.
+
+HelixFactory must combine the best parts and add its unique wedge:
+
+- evidence-backed pre-mortem
+- blast-radius path explanation
+- approval gates
+- git-native audit
+- BYOK AI
+- self-learning refinements
+
+Core UX Layout
+--------------
+The Twin page should use a calm three-zone layout:
+
+Left: Explore
+- Start points
+- Search
+- Ask
+- Filters
+- Recent nodes/questions
+- Saved views
+
+Center: Graph Canvas
+- Beautiful contextual graph
+- Smooth pan/zoom/fit
+- No full universe by default
+- Clear selected neighborhood
+- Mode-aware display
+- Minimal overlays only when useful
+
+Right: Intelligence Panel
+- Selected-node details
+- Code preview
+- Relationships
+- Evidence
+- Risk
+- Actions
+
+Do not spam UI. Advanced controls should be collapsed, tabbed, or contextual.
+
+Phase 1: Node Intelligence Panel
+--------------------------------
+Goal:
+Every node must become useful immediately after click.
+
+Features:
+- Summary tab
+  - Plain-English summary
+  - Node type
+  - File path
+  - Exact line range
+  - Owner/last modified
+  - Connection count
+  - Risk status
+
+- Code tab
+  - Source snippet
+  - Highlight selected line range
+  - Copy file path
+  - Copy node ref
+  - Open in GitHub/code host later
+
+- Relationships tab
+  - Callers
+  - Callees
+  - Imports
+  - Imported by
+  - Extends/extended by
+  - Depends on/dependents
+  - Each item clickable
+
+- Evidence tab
+  - Relationship evidence path
+  - Evidence line
+  - Dependency chain
+  - Audit references where available
+
+- Risk tab
+  - Risk status
+  - Pre-mortem findings linked to node
+  - Preventive checks
+  - Human gate status
+
+- Actions
+  - Center here
+  - Expand one hop
+  - Ask about this
+  - Show blast radius
+  - Run pre-mortem
+  - Copy node ref
+
+Backend needed:
+- GET /repositories/{repository_id}/nodes/{node_id}/source
+- GET /graph/node-context?repository_id=&node_id=
+
+Phase 2: Sourcegraph-Level Navigation
+-------------------------------------
+Goal:
+Twin should not just display nodes; it should let engineers navigate code.
+
+Features:
+- Symbol typeahead grouped by:
+  - Entry points
+  - Files
+  - Functions
+  - Classes
+  - Most connected
+  - Recently viewed
+
+- Query grammar:
+  - type:function auth
+  - type:file router
+  - path:middleware
+  - calls:validate_token
+  - imports:fastapi
+  - risk:high
+  - owner:unknown
+
+- Find references
+- Find callers
+- Find callees
+- Go to definition
+- Open source/code host action
+- History/blame placeholder, then real git history
+
+Performance rule:
+- Typing must remain local.
+- Backend search only on explicit submit/center.
+- Use request cancellation for explicit backend searches.
+
+Phase 3: Why Connected / Path Explanation
+-----------------------------------------
+Goal:
+The graph must explain relationships, not just draw lines.
+
+Features:
+- Click a connected node in the right panel.
+- Show "Why connected?"
+- Highlight the path on graph.
+- Show path steps:
+  - source node
+  - relationship type
+  - target node
+  - file/line evidence
+  - confidence
+
+- Support shortest path between selected node and any visible node.
+- Support relationship-filtered path.
+- Support "show only this path" mode.
+
+Backend needed:
+- POST /graph/path
+  - repository_id
+  - source_node_id
+  - target_node_id
+  - relationship_types
+  - max_depth
+
+Response:
+- nodes
+- edges
+- explanation
+- confidence
+- evidence
+
+Phase 4: Graph Modes
+--------------------
+Goal:
+Different engineering questions need different graph shapes.
+
+Modes:
+
+1. Overview Mode
+   - Top connected architecture nodes
+   - Entry points
+   - Module clusters
+   - High-risk nodes
+
+2. Entry Point Mode
+   - Start from app/server/router/CLI/job entry points
+   - Show execution flow outward
+   - Good for onboarding
+
+3. Call Tree Mode
+   - Callers and callees
+   - Hierarchical layout
+   - Best for "what calls this?"
+
+4. Dependency Mode
+   - Imports, extends, depends_on
+   - Good for architecture and refactor planning
+
+5. Impact Mode
+   - Proposed change as center
+   - Direct and transitive impact
+   - Risk severity
+   - Evidence path
+
+6. Review Map Mode
+   - PR/change-specific map
+   - Changed files/nodes
+   - Review findings
+   - Test evidence
+   - Approval status
+
+7. Risk Mode
+   - Pre-mortem findings overlay
+   - HIGH/CRITICAL highlighted
+   - Human gate status
+
+Implementation:
+- Keep D3 SVG for small contextual graph.
+- Add deterministic layout for tree/dependency modes.
+- Later add Sigma.js + Graphology for large overview mode.
+
+Phase 5: Visual Design and Premium Feel
+---------------------------------------
+Goal:
+Graph must look like a premium engineering product.
+
+Rules:
+- Dark theme, but not one-note dark blue.
+- No excessive glowing.
+- No large decorative cards.
+- No text overlap.
+- No clipped graph.
+- No raw JSON.
+- No unreadable labels.
+- No full universe graph.
+
+Graph visual behavior:
+- Labels visible for selected neighborhood.
+- Edge labels hidden by default; show on hover/selection.
+- Selected node has strong but tasteful emphasis.
+- Connected neighborhood is clear.
+- Unconnected graph dims smoothly.
+- Risk overlay must be readable without overwhelming.
+- Empty state must be elegant and action-oriented.
+- Loading state should be skeleton/soft progress, not text floating over graph.
+
+Node visual system:
+- Entry point: distinct, not gimmicky.
+- File: rectangular.
+- Function: circle/rounded.
+- Class: diamond or distinct shape.
+- High risk: amber border.
+- Critical: red border/pulse.
+- Selected: white/bright border with controlled shadow.
+
+Canvas controls:
+- Fit
+- Zoom in/out
+- Reset
+- Minimap toggle
+- Legend toggle
+- Layout mode selector
+
+Phase 6: Impact Analysis as Killer Feature
+------------------------------------------
+Goal:
+This is where HelixFactory should beat competitors.
+
+Impact mode must show:
+- Proposed change
+- Direct impact count
+- Transitive impact count
+- Affected owners
+- Affected files/functions/classes
+- Severity distribution
+- Confidence score
+- Dependency path
+- Evidence lines
+- Preventive checks
+- Human gate status
+- Audit record link
+
+UX:
+- Side panel with findings.
+- Clicking finding centers affected node.
+- Graph highlights path from change to affected node.
+- Direct impact appears first.
+- Transitive impact appears as next layer.
+- Human approval state is visible for HIGH/CRITICAL.
+
+Backend needed:
+- confidence calculation
+- path-level evidence
+- impact grouping
+- owner grouping
+- preventive checks per finding
+
+Phase 7: CodeSee-Style Collaboration
+------------------------------------
+Goal:
+Make Twin useful for teams, onboarding, and review.
+
+Features:
+- Save graph view.
+- Name saved view.
+- Share/copy view link.
+- Annotate node.
+- Annotate edge/path.
+- Create onboarding tour:
+  - step 1 entry point
+  - step 2 router/service
+  - step 3 dependency
+  - step 4 risk
+- Generate review map for proposed change/PR.
+- Export evidence package from graph context.
+
+Important:
+This must not clutter the core UI. Collaboration features should live behind
+"Save / Annotate / Share" actions.
+
+Phase 8: Metrics and Enterprise Intelligence
+--------------------------------------------
+Goal:
+Add CodeLogic/Understand-style objective intelligence.
+
+Metrics:
+- inbound dependency count
+- outbound dependency count
+- fan-in/fan-out
+- complexity placeholder, later real metric
+- churn/activity
+- owner count
+- risk count
+- impact score
+- confidence score
+
+Views:
+- top connected nodes
+- top risky nodes
+- unknown-owner nodes
+- high fan-out nodes
+- most changed nodes
+- technical debt candidates
+
+Future:
+- runtime dependencies
+- DB/schema lineage
+- API endpoint relationships
+- feature flag/config relationships
+
+Phase 9: Performance and Scale
+------------------------------
+Goal:
+The graph must stay smooth.
+
+Rules:
+- No backend request per keystroke.
+- Local search while typing.
+- Explicit backend query on submit/center.
+- Abort stale requests.
+- Cache summaries.
+- Cache graph query results by repository, center, depth, filters.
+- Hide labels below zoom threshold.
+- Hide edge labels unless selected/hovered.
+- Cap contextual graph nodes.
+- Use Web Worker for heavy layout if needed.
+- Use Sigma.js + Graphology for large overview graph.
+- Keep D3 SVG for rich small contextual graph.
+
+Performance budgets:
+- Typing: no backend calls.
+- Search result update: under 50ms for current graph/local known symbols.
+- Node click UI feedback: immediate selected state.
+- Backend recenter: show loading state within 100ms.
+- Graph render for 40 nodes: smooth enough for interaction.
+- No animation longer than useful; avoid long-running simulation.
+
+Phase 10: Enterprise Trust
+--------------------------
+Goal:
+Every claim must be defensible.
+
+Rules:
+- Every edge has source evidence or confidence.
+- Every risk has file/line/chain.
+- Every AI summary says when evidence is sparse.
+- Every graph query can be audited.
+- Every pre-mortem finding links to graph node.
+- HIGH/CRITICAL risk is visibly blocked.
+- Audit record link is visible for risk/impact workflows.
+
+Unique HelixFactory Differentiator
+----------------------------------
+The competitors can answer:
+- Where is code?
+- What calls what?
+- What depends on what?
+- What does the map look like?
+
+HelixFactory must answer:
+- What breaks if we change this?
+- Why do we believe that?
+- What exact evidence supports it?
+- Who must approve it?
+- What should we check before implementation?
+- Is AI allowed to work here?
+- What did we learn for next time?
+
+This is the unique product wedge.
+
+Practical Implementation Order
+------------------------------
+Do not attempt all phases at once. Build in this order:
+
+Sprint 1: Right Panel Intelligence
+- Relationship tabs.
+- Code preview endpoint.
+- Source snippet display.
+- Node actions.
+- Better selected-node UI.
+
+Sprint 2: Path Explanation
+- /graph/path endpoint.
+- Highlight path.
+- Explain relationship evidence.
+- "Why connected?" action.
+
+Sprint 3: Graph Premium Polish
+- Hide edge labels by default.
+- Zoom-threshold labels.
+- Strong selected neighborhood.
+- Better empty/loading states.
+- Cleaner filters and compact sidebar.
+
+Sprint 4: Layout Modes
+- Force.
+- Call tree.
+- Dependency.
+- Cluster.
+
+Sprint 5: Impact Mode
+- Direct/transitive impact panel.
+- Confidence.
+- Evidence path.
+- Finding-to-node linking.
+- Human gate status.
+
+Sprint 6: Search and Navigation
+- Query grammar.
+- Find references.
+- Go to definition.
+- History/blame.
+- Open code host/editor.
+
+Sprint 7: Collaboration and Review Maps
+- Save views.
+- Annotations.
+- Tours.
+- PR/review map.
+
+Sprint 8: Scale
+- Request cancellation.
+- Query/layout cache.
+- WebGL overview mode with Sigma.js + Graphology.
+- Browser performance tests.
+
+Definition of Best-in-Class
+---------------------------
+Twin is not "best" until:
+
+- It feels smooth while typing, filtering, clicking, and panning.
+- The graph is visually premium and uncluttered.
+- Every selected node gives useful engineering intelligence.
+- Users can see code without leaving Twin.
+- Users can understand callers/callees/references.
+- Users can explain why two nodes are connected.
+- Users can understand impact before changing code.
+- Risk is evidence-backed and linked to graph.
+- The UI is calm, not spammed.
+- Browser tests pass desktop and mobile.
+- Real repo demo completes in under 3 minutes.
+- Enterprises can see governance, evidence, and audit value immediately.
+
+What Not To Do
+--------------
+- Do not add more panels just to show more information.
+- Do not show full universe graph.
+- Do not query backend on every keystroke.
+- Do not make graph a dashboard.
+- Do not show every label always.
+- Do not show every edge label always.
+- Do not use generic AI answers without evidence.
+- Do not make risk colors overpower the graph.
+- Do not add collaboration before core inspect/path/impact are strong.
+
+Final Recommendation
+--------------------
+The next coding pass should start with Sprint 1:
+
+Right Panel Intelligence.
+
+Reason:
+- It creates the biggest product-value jump.
+- It makes every graph click meaningful.
+- It directly addresses competitor gaps from Sourcegraph, GitNexus, and
+  Understand.
+- It does not spam the center canvas.
+- It improves perceived quality more than another dashboard or extra sidebar.
+
+After Sprint 1, build path explanation. Together, these two features turn Twin
+from "graph viewer" into "code understanding product."

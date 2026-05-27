@@ -1,0 +1,526 @@
+HelixFactory Twin Gap Assessment vs Top Competitors
+Generated: 2026-05-27
+
+Purpose
+-------
+This document compares the current HelixFactory Twin feature against five
+competitors/reference products:
+
+1. Sourcegraph
+2. GitNexus
+3. CodeSee
+4. CodeLogic
+5. SciTools Understand
+
+The goal is to identify exactly where HelixFactory is lacking and what must be
+done to make Twin feel enterprise-grade, smooth, visually strong, and useful
+enough for companies to buy.
+
+Executive Truth
+---------------
+HelixFactory Twin is not yet better than these competitors. It has a promising
+foundation, but the current Twin feature is still closer to an early product
+prototype than a world-class enterprise graph/code intelligence experience.
+
+It is not fair to say it has reached only 1% of every competitor, because the
+foundation already includes real ingestion, graph traversal, centered subgraph
+queries, risk overlay, pre-mortem linkage, BYOK AI boundary, and audit-oriented
+architecture. Most competitors do not combine all of those in one workflow.
+
+However, if judged as a polished enterprise product that a buyer can adopt
+without hesitation, the current Twin is still far behind:
+
+- Compared to Sourcegraph search/navigation depth: about 10-15%.
+- Compared to GitNexus graph-native exploration: about 20-25%.
+- Compared to CodeSee map/review/onboarding UX: about 10-15%.
+- Compared to CodeLogic impact/dependency intelligence: about 10-15%.
+- Compared to Understand static analysis depth/metrics/graph modes: about 5-10%.
+
+Overall enterprise-buyable Twin maturity today:
+Approximately 15% of where it needs to be.
+
+The strongest current differentiator is not UI polish. It is the architecture
+idea: Twin + pre-mortem + blast radius + audit + approval gates. The product
+must now become much deeper and cleaner in the Twin page itself.
+
+Design Principle Going Forward
+------------------------------
+Do not spam the UI.
+
+The Twin page should not show every feature at once. It should use progressive
+disclosure:
+
+- Left side: how to start exploration.
+- Center: beautiful, smooth graph canvas.
+- Right side: selected-node intelligence.
+- Top/status: current context and compact controls.
+- Bottom/canvas overlays: only zoom/fit/legend/minimap.
+
+Every feature must either answer one of these user questions or be hidden:
+
+- What is this?
+- Where does it live?
+- What calls it?
+- What does it call?
+- What breaks if I change it?
+- Why is it connected?
+- Who owns it?
+- What changed recently?
+- What evidence proves this?
+- Can an agent safely work here?
+
+Current HelixFactory Twin Strengths
+-----------------------------------
+Implemented or partially implemented:
+
+- Real backend graph model.
+- Ingested code twin with files/functions/classes.
+- Centered graph query, not full universe.
+- D3 graph rendering.
+- Click node to backend recenter.
+- Hover illumination and dimming.
+- Depth control.
+- Relationship filters.
+- Node type filters.
+- High-risk filter.
+- Local search while typing.
+- Explicit center action to avoid backend search per keystroke.
+- Entry point list.
+- Architecture overview list.
+- Selected-node detail panel.
+- AI-backed node summary endpoint.
+- Pre-mortem severity overlay integration.
+- Blast radius input.
+- Minimap, zoom, fit, legend.
+- Escape reset.
+- Backend tests and frontend build pass.
+
+Current HelixFactory Twin Weaknesses
+------------------------------------
+Critical gaps:
+
+- No code preview in selected-node panel.
+- No callers/callees/imports/references tabs.
+- No "why connected" path explanation.
+- No code-host/editor action.
+- No visual grouping by module/folder/service.
+- No layout modes.
+- No graph diff.
+- No review map.
+- No saved views.
+- No annotations or onboarding tours.
+- No metrics/complexity/LOC/hotspot overlays.
+- No runtime dependencies.
+- No database/schema/data-flow relationships.
+- No confidence score for graph/impact results.
+- No path-level evidence for blast radius.
+- No polished enterprise visual language yet.
+- No live browser/performance validation from Codex due sandbox limits.
+
+Comparison: Sourcegraph
+-----------------------
+Sourcegraph is strongest at code search, code navigation, code browsing, and
+developer workflow integration.
+
+Where Sourcegraph is ahead:
+
+- Powerful query language.
+- Symbol search/typeahead.
+- Fast indexed search.
+- Search contexts.
+- Diff and commit search.
+- Hover popovers with symbol details.
+- Go to definition.
+- Find references.
+- Code viewer.
+- Open in editor.
+- Open in code host.
+- Blame/history.
+- Deep Search with sourced answers.
+- Enterprise-grade navigation polish.
+
+Where HelixFactory currently lacks:
+
+- Search is basic and local to known graph nodes.
+- No code viewer.
+- No hover signature/docs.
+- No find references.
+- No go-to-definition.
+- No blame/history in Twin.
+- No branch/commit/diff search.
+- No query grammar.
+- No search result ranking comparable to Sourcegraph.
+- No direct jump from graph node to source lines.
+
+How HelixFactory can beat Sourcegraph:
+
+- Make risk and change safety first-class.
+- Add pre-mortem evidence directly to graph.
+- Add blast-radius path explanation.
+- Add approval/audit context to every node/change.
+- Add "safe for AI?" answer Sourcegraph does not natively own.
+
+Required features to close gap:
+
+- Node source preview.
+- Symbol detail popover.
+- Find callers/callees/references.
+- Search grammar: type:, path:, calls:, imports:, risk:.
+- File history/owner context.
+- Open code host/editor action.
+- Sourced AI answer tied to graph evidence.
+
+Comparison: GitNexus
+--------------------
+GitNexus is strongest at graph-first repository understanding, graph RAG,
+hybrid search, symbol context, impact, clusters, and process tracing.
+
+Where GitNexus is ahead:
+
+- Graph is the main product surface.
+- Hybrid BM25 + semantic search.
+- 360-degree symbol context.
+- Impact analysis with confidence.
+- Change detection.
+- Cluster detection with cohesion.
+- Process/execution tracing.
+- WebGL graph rendering via Sigma.js/Graphology in referenced stack.
+- Agent/MCP-style graph access.
+
+Where HelixFactory currently lacks:
+
+- Search is not hybrid.
+- No semantic search index.
+- Symbol context is shallow.
+- Impact has no confidence score.
+- No cluster detection.
+- No process tracing.
+- No graph RAG workflow.
+- No MCP graph access.
+- D3 SVG may not scale like WebGL for large views.
+
+How HelixFactory can beat GitNexus:
+
+- Add enterprise governance that GitNexus does not fully own:
+  pre-mortem, human gates, audit commits, skill refinement, compliance evidence.
+- Make impact analysis not just structural, but approval-aware and evidence
+  backed.
+
+Required features to close gap:
+
+- Symbol 360 panel.
+- Hybrid search backend.
+- Cluster/module grouping.
+- Confidence-scored impact.
+- Execution/process path tracing.
+- WebGL large graph mode.
+- Agent-accessible graph query endpoint.
+
+Comparison: CodeSee
+-------------------
+CodeSee is strongest at map UX, onboarding, review maps, annotations, tours,
+visibility controls, and PR workflow integration.
+
+Where CodeSee is ahead:
+
+- Codebase maps are polished and workflow-oriented.
+- File/folder browser.
+- Hide/show visibility controls.
+- Collapsible folders.
+- Drag positions.
+- Annotations/comments.
+- Tours.
+- Review maps automatically generated for PRs.
+- GitHub PR image/embed.
+- Auto-insights: hotspots, activity, creation date, LOC.
+- Service map for endpoints/flows.
+
+Where HelixFactory currently lacks:
+
+- No file tree.
+- No hide/show by file or folder.
+- No collapsible groups.
+- No saved layout.
+- No annotations.
+- No tours.
+- No PR/review map.
+- No hotspot/activity/LOC overlays.
+- No service map.
+- No collaboration/onboarding experience.
+
+How HelixFactory can beat CodeSee:
+
+- Add risk intelligence and audit evidence on top of maps.
+- Use pre-mortem and blast radius to make review maps actionable, not just
+  visual.
+- Add self-learning and human gates.
+
+Required features to close gap:
+
+- File tree panel or collapsible section.
+- Hide/show nodes and folders.
+- Saved views.
+- Review map per change/PR.
+- Annotations and tours.
+- Activity/hotspot/LOC overlays.
+- Service endpoint flow map.
+
+Comparison: CodeLogic
+---------------------
+CodeLogic is strongest at dependency mapping, impact analysis, technical debt,
+runtime/database relationship intelligence, and prioritization.
+
+Where CodeLogic is ahead:
+
+- Application dependency mapping.
+- Knowledge graph beyond source code.
+- Runtime behavior dependency capture.
+- Database tables/columns/foreign keys.
+- Impact score.
+- Complexity trend line.
+- Class/method analysis.
+- Top high-impact entities.
+- Graph differential analysis.
+- Technical debt remediation positioning.
+
+Where HelixFactory currently lacks:
+
+- No runtime dependencies.
+- No DB/schema lineage.
+- No impact score.
+- No complexity score.
+- No trend line.
+- No graph diff.
+- No technical debt prioritization.
+- No top-risk/top-debt dashboard.
+- No automated remediation workflow.
+
+How HelixFactory can beat CodeLogic:
+
+- Make the risk/impact intelligence actionable before AI or humans change code.
+- Tie impact to approval gates and audit commits.
+- Add AI-generated preventive checks with evidence.
+
+Required features to close gap:
+
+- Impact score per node and per change.
+- Complexity and dependency score.
+- DB/schema nodes.
+- Runtime call/import/data-flow collection.
+- Graph diff between ingestions.
+- Technical debt/risk ranking.
+- Remediation plan with evidence.
+
+Comparison: SciTools Understand
+-------------------------------
+Understand is strongest at mature static analysis, multiple graph modes,
+metrics, compliance checks, APIs, plugins, and deep navigation.
+
+Where Understand is ahead:
+
+- Deep cross-reference analysis.
+- Call trees.
+- Called-by graphs.
+- Dependency graphs.
+- Butterfly graphs.
+- Data-flow graphs.
+- UML/class style graphs.
+- Large metrics catalog.
+- Search by entity kind and metric values.
+- Change analysis.
+- Compliance validation.
+- APIs and plugins.
+- Code annotations.
+- Mature desktop/IDE-style workflows.
+
+Where HelixFactory currently lacks:
+
+- Only one graph layout mode.
+- No call tree mode.
+- No called-by graph.
+- No data-flow graph.
+- No butterfly graph.
+- No UML/class graph.
+- No metric catalog.
+- No entity-kind/metric search.
+- No compliance rule engine.
+- No plugin/API story for custom analysis.
+- No mature annotation system.
+
+How HelixFactory can beat Understand:
+
+- Be AI-native and workflow-governed.
+- Add pre-mortem, blast radius, audit, approvals, and self-learning.
+- Make analysis accessible through plain English and enterprise workflows.
+
+Required features to close gap:
+
+- Multiple graph modes.
+- Metrics per node.
+- Compliance/check rules.
+- API/plugin model.
+- Change/version analysis.
+- Data-flow and call-tree views.
+
+Feature Gap Matrix
+------------------
+
+Capability                    Current HelixFactory    Enterprise Target
+-----------------------------------------------------------------------
+Visual graph polish            Medium-low             High
+Graph smoothness               Medium                 High
+Search performance             Improved               High
+Search depth                   Low                    High
+Code preview                   Missing                Required
+Find references/callers        Missing                Required
+Path explanation               Missing                Required
+Graph layout modes             Missing                Required
+Cluster/module grouping        Missing                Required
+Saved views                    Missing                Strongly needed
+Annotations/tours              Missing                Strongly needed
+PR/review map                  Missing                Strongly needed
+Hotspot/activity overlays      Missing                Strongly needed
+Impact score                   Missing                Required
+Blast radius explanation       Partial                Required
+Runtime dependencies           Missing                Future enterprise
+DB/schema relationships        Missing                Future enterprise
+Metrics/complexity             Missing                Required
+Graph diff                     Missing                Required
+Audit integration              Partial/strong base    High
+AI node summary                Partial                High
+BYOK                           Present backend        Needs UX later
+Large graph rendering          Partial                Needs WebGL mode
+
+What Must Be Built Before It Feels "Wow"
+----------------------------------------
+Minimum "enterprise wow" for Twin:
+
+1. Graph must be beautiful and calm:
+   - No clutter.
+   - No tiny unreadable labels everywhere.
+   - Smooth hover.
+   - Smooth click/recenter.
+   - Strong selected state.
+   - Professional color/contrast.
+   - Legend and controls placed cleanly.
+
+2. Search must feel instant:
+   - Typing local.
+   - Results categorized.
+   - No stuck UI.
+   - Explicit center/requery action.
+
+3. Inspect panel must be valuable:
+   - Code snippet.
+   - Summary.
+   - File/line.
+   - Owner/history.
+   - Callers/callees/imports.
+   - Evidence.
+   - Risk.
+
+4. Impact must explain "why":
+   - Not just red/yellow nodes.
+   - Show dependency path.
+   - Show direct vs transitive impact.
+   - Show confidence/evidence.
+
+5. Views must fit mental model:
+   - Architecture overview.
+   - Entry point flow.
+   - Call tree.
+   - Dependency graph.
+   - Risk/impact map.
+
+6. It must avoid UI spam:
+   - Put advanced controls behind compact sections.
+   - Show only the next useful action.
+   - Use tabs in detail panel.
+   - Use overlays only when active.
+   - No dashboard junk inside the graph canvas.
+
+Recommended Next Build Order
+----------------------------
+This order gives the highest visible and functional improvement without making
+the UI noisy.
+
+Pass A: Right Panel Intelligence
+
+- Add tabs:
+  - Summary
+  - Relationships
+  - Evidence
+  - Risk
+- Add callers/callees/imports grouping.
+- Add copy node ref.
+- Add ask-about-node action.
+- Add code snippet endpoint and display.
+
+Pass B: Path Explanation
+
+- Add backend shortest/path relationship endpoint.
+- Add "Why connected?" from selected neighbor.
+- Highlight path on graph.
+- Show path evidence in right panel.
+
+Pass C: Layout and Visual Polish
+
+- Add layout mode selector:
+  - Force
+  - Tree
+  - Cluster
+- Hide edge labels until hover/selection.
+- Add zoom-threshold labels.
+- Make selected node and neighborhood visually premium.
+- Improve loading skeleton and empty state.
+
+Pass D: Review/Impact Map
+
+- Add findings side panel in impact mode.
+- Click finding centers affected node.
+- Show direct/transitive counts.
+- Show confidence/evidence path.
+
+Pass E: Larger Scale
+
+- Add Sigma.js + Graphology option for large overview graph.
+- Keep D3 for rich contextual subgraph.
+- Add performance counters and Playwright timing checks.
+
+Hard Product Standard
+---------------------
+The Twin page should be considered production-grade only when all of this is
+true:
+
+- No backend requests while typing.
+- Graph stays smooth under expected node limits.
+- Search finds symbols instantly.
+- Click any node recenters cleanly.
+- Right panel explains the selected node without needing another page.
+- User can answer "what calls this" and "what breaks if I change this".
+- Risk overlay is understandable.
+- Graph does not look like a toy force-directed demo.
+- Mobile does not overflow.
+- E2E browser tests pass.
+- Real repo demo completes under 3 minutes.
+
+Bottom Line
+-----------
+HelixFactory has a differentiated thesis, but Twin is not yet buyer-grade.
+It does not yet match the search depth of Sourcegraph, graph confidence of
+GitNexus, map workflow polish of CodeSee, impact scoring of CodeLogic, or static
+analysis depth of Understand.
+
+The path to beating them is not to add every control to the screen. The path is
+to make Twin answer high-value engineering questions faster and with evidence:
+
+- What is this?
+- What calls this?
+- What will break?
+- Why?
+- Who owns it?
+- What should we check before changing it?
+
+If the next passes build those workflows cleanly, HelixFactory can become
+stronger than a code graph product because it connects graph understanding to
+risk prediction, human approval, audit, and AI governance.

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helixfactory.local/contracts/audit-record.schema.json",
+  "title": "HelixFactory Audit Record",
+  "type": "object",
+  "required": [
+    "id",
+    "action_type",
+    "actor",
+    "subject_ref",
+    "result",
+    "timestamp",
+    "git_commit"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "ingestion",
+        "premortem",
+        "blast_radius",
+        "agent_execution",
+        "security_scan",
+        "review",
+        "approval",
+        "merge",
+        "qa",
+        "skill_refinement"
+      ]
+    },
+    "actor": {
+      "type": "string"
+    },
+    "subject_ref": {
+      "type": "string"
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "output_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "summary": {
+      "type": "string"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "success",
+        "partial",
+        "blocked",
+        "failed"
+      ]
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "git_commit": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "enum": [
+              "partial",
+              "blocked",
+              "failed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "details"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}
