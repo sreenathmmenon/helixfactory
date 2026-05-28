@@ -59,14 +59,14 @@ class PreMortemEngine:
             ai_gap = _apply_ai_explanations(self.state, request.summary, findings)
             if ai_gap:
                 gaps.append(ai_gap)
-        risk = _max_risk([f.severity for f in findings]) if findings else "low"
+        risk = _max_risk([f.severity for f in findings]) if findings else "blocked_insufficient_evidence"
         audit = self.state.record_audit(
             AuditRecord(
                 id=f"audit-{change.id}-premortem",
                 action_type="premortem",
                 actor="system",
                 subject_ref=change.id,
-                input_refs=request.target_refs,
+                input_refs=[request.repository_id, *request.target_refs],
                 output_refs=[f.id for f in findings],
                 summary=request.summary,
                 result="success" if findings else "partial",
@@ -91,7 +91,7 @@ class PreMortemEngine:
             risk_status=risk,
             findings=[f.model_dump(by_alias=True, mode="json") for f in findings],
             evidence_gaps=gaps,
-            requires_human_approval=risk in {"high", "critical"},
+            requires_human_approval=risk in {"high", "critical", "blocked_insufficient_evidence"},
             audit_record_id=audit.id,
         )
 

@@ -15,3 +15,5 @@ def test_premortem_suppresses_insufficient_evidence(seeded_state):
     result = PreMortemEngine(seeded_state).run(PreMortemRequest(repositoryId="repo1", summary="modify missing", changeType="modify", targetRefs=["missing"]))
     assert not result.findings
     assert result.evidence_gaps
+    assert result.risk_status == "blocked_insufficient_evidence"
+    assert result.requires_human_approval

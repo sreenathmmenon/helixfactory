@@ -92,6 +92,9 @@ class EvidencePackageRequest(CamelModel):
 
 class EvidencePackage(CamelModel):
     records: list[dict]
+    completeness_status: str = "unknown"
+    missing_actions: list[str] = Field(default_factory=list)
+    chronological_chain: list[str] = Field(default_factory=list)
 
 
 class PreMortemResult(CamelModel):

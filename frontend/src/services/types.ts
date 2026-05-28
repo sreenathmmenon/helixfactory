@@ -1,4 +1,4 @@
-export type Risk = "none" | "low" | "medium" | "high" | "critical";
+export type Risk = "none" | "low" | "medium" | "high" | "critical" | "blocked_insufficient_evidence";
 
 export interface Repository {
   id: string;
@@ -96,7 +96,7 @@ export interface PreMortemFinding {
 
 export interface PreMortemResult {
   changeId: string;
-  riskStatus: "low" | "medium" | "high" | "critical";
+  riskStatus: "low" | "medium" | "high" | "critical" | "blocked_insufficient_evidence";
   findings: PreMortemFinding[];
   evidenceGaps: string[];
   requiresHumanApproval: boolean;
@@ -111,6 +111,9 @@ export interface ArchitectureAnswer {
 
 export interface EvidencePackage {
   records: AuditRecord[];
+  completenessStatus: "unknown" | "incomplete" | "requires_attention" | "complete";
+  missingActions: string[];
+  chronologicalChain: string[];
 }
 
 export interface AuditRecord {

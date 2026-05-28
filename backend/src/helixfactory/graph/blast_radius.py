@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib
 import logging
 
 from helixfactory.api.schemas.models import AuditRecord, GraphCenter, GraphView
@@ -21,6 +22,26 @@ class BlastRadiusService:
         center_ref = targets[0] if targets else request.target_refs[0]
         if not targets:
             logger.warning("Blast radius target unresolved", extra={"repository_id": request.repository_id, "target_refs": request.target_refs})
+            self.state.record_audit(
+                AuditRecord(
+                    id=f"audit-blast-unresolved-{_stable_id(request.repository_id, request.target_refs)}",
+                    action_type="blast_radius",
+                    actor="system",
+                    subject_ref=request.repository_id,
+                    input_refs=[request.repository_id, *request.target_refs],
+                    output_refs=[],
+                    summary=request.summary,
+                    result="partial",
+                    details={"reason": "No target refs resolved in the current twin; blast radius cannot be trusted."},
+                )
+            )
+            return GraphView(
+                center=GraphCenter(type="query", value=", ".join(request.target_refs)),
+                nodes=[],
+                edges=[],
+                depth=request.depth,
+                risk_summary={"blocked_insufficient_evidence": 1},
+            )
         view = self.query_service.query(
             GraphQueryRequest(
                 repository_id=request.repository_id,
@@ -43,7 +64,7 @@ class BlastRadiusService:
                 action_type="blast_radius",
                 actor="system",
                 subject_ref=center_ref,
-                input_refs=request.target_refs,
+                input_refs=[request.repository_id, *request.target_refs],
                 output_refs=[node.id for node in view.nodes],
                 summary=request.summary,
                 result="success" if view.nodes else "partial",
@@ -51,3 +72,7 @@ class BlastRadiusService:
             )
         )
         return view
+
+
+def _stable_id(repository_id: str, refs: list[str]) -> str:
+    return hashlib.sha256(f"{repository_id}:{'|'.join(refs)}".encode("utf-8")).hexdigest()[:12]

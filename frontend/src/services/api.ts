@@ -91,8 +91,8 @@ export const api = {
     request("/qa/architecture", { method: "POST", body: JSON.stringify({ repositoryId, question }) }),
   evidencePackage: (repositoryId?: string): Promise<EvidencePackage> =>
     request("/audit/evidence-package", { method: "POST", body: JSON.stringify({ repositoryId }) }),
-  submitExecution: (repositoryId: string, summary: string): Promise<AgentExecution> =>
-    request("/executions", { method: "POST", body: JSON.stringify({ repositoryId, summary }) }),
+  submitExecution: (repositoryId: string, summary: string, testEvidence?: string): Promise<AgentExecution> =>
+    request("/executions", { method: "POST", body: JSON.stringify({ repositoryId, summary, testEvidence }) }),
   proposeSkillRefinement: (executionId: string, patternSummary: string, evidenceRefs: string[]): Promise<SkillRefinement> =>
     request("/skill-refinements", { method: "POST", body: JSON.stringify({ executionId, patternSummary, evidenceRefs }) }),
   approveSkillRefinement: (refinementId: string, reviewer: string): Promise<SkillRefinement> =>

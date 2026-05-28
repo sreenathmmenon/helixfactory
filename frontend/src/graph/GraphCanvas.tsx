@@ -1,49 +1,108 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as d3 from "d3";
-import { Code2, FileText, GitBranch, Link2, Network, RotateCcw, Search, ShieldAlert, X, type LucideIcon } from "lucide-react";
+import Graph from "graphology";
+import forceAtlas2 from "graphology-layout-forceatlas2";
+import Sigma from "sigma";
+import {
+  Code2,
+  FileText,
+  GitBranch,
+  Link2,
+  Maximize2,
+  Network,
+  RotateCcw,
+  Search,
+  ShieldAlert,
+  Sparkles,
+  X,
+  ZoomIn,
+  ZoomOut,
+  type LucideIcon
+} from "lucide-react";
 import { api } from "../services/api";
-import type { GraphEdge, GraphNode, GraphPath, GraphView, NodeContext, NodeSource, NodeSummary, PreMortemResult, Repository, Risk } from "../services/types";
+import type {
+  GraphEdge,
+  GraphNode,
+  GraphPath,
+  GraphView,
+  NodeContext,
+  NodeSource,
+  NodeSummary,
+  PreMortemResult,
+  Repository,
+  Risk
+} from "../services/types";
 
 type GraphCanvasProps = {
   repository?: Repository;
   preMortem?: PreMortemResult;
 };
 
-type D3Node = GraphNode & d3.SimulationNodeDatum;
-type D3Link = GraphEdge & d3.SimulationLinkDatum<D3Node>;
+type TwinMode = "overview" | "entry" | "search" | "neighborhood" | "impact" | "review" | "memory";
+type DetailTab = "summary" | "relationships" | "code" | "evidence" | "risk";
+type SavedTwinView = {
+  id: string;
+  name: string;
+  graph: GraphView;
+  mode: TwinMode;
+  centeredLabel: string;
+  selectedId?: string;
+};
 
-const NODE_STYLE: Record<string, { fill: string; stroke: string; icon: string }> = {
-  entry_point: { fill: "#0d2b1a", stroke: "#27AE60", icon: "★" },
-  file: { fill: "#0d2b2c", stroke: "#0D7377", icon: "▣" },
-  function: { fill: "#0d1f2d", stroke: "#4A90D9", icon: "ƒ" },
-  class: { fill: "#1a0d2b", stroke: "#9B59B6", icon: "◇" },
-  repository: { fill: "#1a1a2e", stroke: "#555", icon: "⬢" }
+type SigmaNodeAttributes = {
+  x: number;
+  y: number;
+  size: number;
+  label: string;
+  color: string;
+  borderColor: string;
+  type: string;
+  node: GraphNode;
+  subsystem: string;
+  severity: Risk;
+  hidden?: boolean;
+  forceLabel?: boolean;
+  zIndex?: number;
+};
+
+type SigmaEdgeAttributes = {
+  label: string;
+  color: string;
+  size: number;
+  type: string;
+  relationship: string;
+  edge: GraphEdge;
+  hidden?: boolean;
+};
+
+type SigmaGraph = Graph<SigmaNodeAttributes, SigmaEdgeAttributes>;
+
+const NODE_STYLE: Record<string, { fill: string; stroke: string; icon: string; label: string }> = {
+  entry_point: { fill: "#123321", stroke: "#2fd36b", icon: "●", label: "entry" },
+  repository: { fill: "#1a1a2e", stroke: "#8a93a7", icon: "⬢", label: "repo" },
+  file: { fill: "#0d2b2c", stroke: "#0D7377", icon: "▣", label: "file" },
+  function: { fill: "#0d1f2d", stroke: "#4A90D9", icon: "ƒ", label: "function" },
+  class: { fill: "#1a0d2b", stroke: "#9B59B6", icon: "◇", label: "class" }
 };
 
 const EDGE_COLOR: Record<string, string> = {
   calls: "#4A90D9",
   imports: "#0D7377",
   extends: "#9B59B6",
-  depends_on: "#333"
+  depends_on: "#7a8192"
 };
 
+const SEVERITY_COLOR: Partial<Record<Risk, string>> = {
+  critical: "#E74C3C",
+  high: "#F39C12",
+  medium: "#F1C40F",
+  blocked_insufficient_evidence: "#E74C3C"
+};
+
+const SUBSYSTEM_COLORS = ["#0D7377", "#4A90D9", "#9B59B6", "#27AE60", "#F39C12", "#E67E22", "#6C8AE4", "#16A085"];
 const SUGGESTIONS = ["What are the entry points?", "Show architecture overview", "What is most connected?"];
 const RELATIONSHIPS = ["calls", "imports", "extends", "depends_on"];
 const NODE_TYPES = ["entry_point", "file", "function", "class"];
-type DetailTab = "summary" | "relationships" | "code" | "evidence" | "risk";
-type GraphLayoutMode = "force" | "call_tree" | "dependency" | "cluster" | "impact";
-type SavedTwinView = {
-  id: string;
-  name: string;
-  graph: GraphView;
-  centeredLabel: string;
-  depth: number;
-  layoutMode: GraphLayoutMode;
-  relationshipTypes: string[];
-  nodeTypes: string[];
-  riskFilter: "all" | "risky";
-  selectedId?: string;
-};
+
 const DETAIL_TABS: Array<{ tab: DetailTab; icon: LucideIcon; label: string }> = [
   { tab: "summary", icon: FileText, label: "Summary" },
   { tab: "relationships", icon: GitBranch, label: "Links" },
@@ -53,17 +112,15 @@ const DETAIL_TABS: Array<{ tab: DetailTab; icon: LucideIcon; label: string }> = 
 ];
 
 export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const minimapRef = useRef<SVGSVGElement | null>(null);
-  const simulationRef = useRef<d3.Simulation<D3Node, D3Link>>();
-  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown>>();
-  const rootGroupRef = useRef<SVGGElement | null>(null);
-  const [question, setQuestion] = useState("");
-  const [quickSearch, setQuickSearch] = useState("");
-  const [impactText, setImpactText] = useState("");
-  const [lastQuestions, setLastQuestions] = useState<string[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const minimapRef = useRef<HTMLCanvasElement | null>(null);
+  const graphologyRef = useRef<SigmaGraph>();
+  const rendererRef = useRef<Sigma<SigmaNodeAttributes, SigmaEdgeAttributes>>();
+  const requestSeq = useRef(0);
+  const detailSeq = useRef(0);
   const [graph, setGraph] = useState<GraphView>();
   const [selected, setSelected] = useState<GraphNode>();
+  const [hoveredId, setHoveredId] = useState<string>();
   const [summary, setSummary] = useState<NodeSummary>();
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [nodeContext, setNodeContext] = useState<NodeContext>();
@@ -71,75 +128,104 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string>();
   const [detailTab, setDetailTab] = useState<DetailTab>("summary");
-  const [highlightPath, setHighlightPath] = useState<GraphPath>();
-  const [pathLoading, setPathLoading] = useState(false);
-  const [sidebarEntryPoints, setSidebarEntryPoints] = useState<GraphNode[]>([]);
+  const [question, setQuestion] = useState("");
+  const [quickSearch, setQuickSearch] = useState("");
+  const [impactText, setImpactText] = useState("");
+  const [lastQuestions, setLastQuestions] = useState<string[]>([]);
+  const [entryPoints, setEntryPoints] = useState<GraphNode[]>([]);
   const [overviewNodes, setOverviewNodes] = useState<GraphNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const [mode, setMode] = useState<TwinMode>("overview");
   const [depth, setDepth] = useState(1);
   const [centeredLabel, setCenteredLabel] = useState("Home");
   const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: string; name: string }>>([]);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; node: GraphNode }>();
-  const [size, setSize] = useState({ width: 900, height: 620 });
-  const [severityByNode, setSeverityByNode] = useState<Map<string, Risk>>(new Map());
   const [relationshipTypes, setRelationshipTypes] = useState<string[]>([]);
   const [nodeTypes, setNodeTypes] = useState<string[]>([]);
   const [riskFilter, setRiskFilter] = useState<"all" | "risky">("all");
-  const [mode, setMode] = useState<"overview" | "search" | "impact">("overview");
-  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>("force");
+  const [highlightPath, setHighlightPath] = useState<GraphPath>();
+  const [pathLoading, setPathLoading] = useState(false);
+  const [severityByNode, setSeverityByNode] = useState<Map<string, Risk>>(new Map());
   const [savedViews, setSavedViews] = useState<SavedTwinView[]>(() => loadSavedViews());
   const [annotations, setAnnotations] = useState<Record<string, string>>(() => loadAnnotations());
-  const requestSeq = useRef(0);
-  const detailSeq = useRef(0);
 
-  const entryPoints = useMemo(() => {
-    const fromGraph = (graph?.nodes ?? []).filter((node) => node.isEntryPoint || node.type === "entry_point");
-    return (fromGraph.length ? fromGraph : sidebarEntryPoints).slice(0, 8);
-  }, [graph, sidebarEntryPoints]);
-  const quickCandidates = useMemo(() => uniqueNodes([...(graph?.nodes ?? []), ...overviewNodes, ...sidebarEntryPoints]), [graph, overviewNodes, sidebarEntryPoints]);
+  const repoName = repository?.url.split("/").filter(Boolean).slice(-1)[0] ?? "No repository";
+  const visibleGraph = useMemo(() => filterGraph(graph, relationshipTypes, nodeTypes, riskFilter, severityByNode, selected?.id), [graph, relationshipTypes, nodeTypes, riskFilter, severityByNode, selected?.id]);
+  const visibleNodeIds = useMemo(() => new Set(visibleGraph.nodes.map((node) => node.id)), [visibleGraph.nodes]);
+  const quickCandidates = useMemo(() => uniqueNodes([...(graph?.nodes ?? []), ...entryPoints, ...overviewNodes]), [graph, entryPoints, overviewNodes]);
   const quickResults = useMemo(() => searchNodes(quickSearch, quickCandidates, severityByNode), [quickSearch, quickCandidates, severityByNode]);
-  const modeRelationships = useMemo(() => relationshipsForLayout(layoutMode), [layoutMode]);
-  const visibleNodes = useMemo(() => {
-    const selectedId = selected?.id;
-    return (graph?.nodes ?? []).filter((node) => {
-      if (node.id === selectedId) return true;
-      const typeAllowed = nodeTypes.length === 0 || nodeTypes.includes(node.type);
-      const riskAllowed = riskFilter === "all" || severityByNode.get(node.id) === "critical" || severityByNode.get(node.id) === "high" || node.risk === "critical" || node.risk === "high";
-      return typeAllowed && riskAllowed;
-    });
-  }, [graph, nodeTypes, riskFilter, selected?.id, severityByNode]);
-  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.id)), [visibleNodes]);
-  const visibleEdges = useMemo(
-    () => (graph?.edges ?? []).filter((edge) =>
-      visibleNodeIds.has(edge.source)
-      && visibleNodeIds.has(edge.target)
-      && (relationshipTypes.length === 0 || relationshipTypes.includes(edge.type))
-      && (modeRelationships.length === 0 || modeRelationships.includes(edge.type))
-    ),
-    [graph, modeRelationships, relationshipTypes, visibleNodeIds]
-  );
-  const connectedNodes = useMemo(() => selected ? connectedNodeList(selected.id, graph, visibleEdges) : [], [graph, selected, visibleEdges]);
+  const connectedNodes = useMemo(() => selected ? connectedNodeList(selected.id, graph, visibleGraph.edges) : [], [graph, selected, visibleGraph.edges]);
+  const graphStats = useMemo(() => summarizeNodes(visibleGraph.nodes, severityByNode), [visibleGraph.nodes, severityByNode]);
   const highlightedNodeIds = useMemo(() => new Set(highlightPath?.nodes.map((node) => node.id) ?? []), [highlightPath]);
   const highlightedEdgeIds = useMemo(() => new Set(highlightPath?.edges.map((edge) => edge.id) ?? []), [highlightPath]);
-  const graphStats = useMemo(() => summarizeNodes(visibleNodes), [visibleNodes]);
-  const impactStats = useMemo(() => selected ? calculateImpact(selected.id, graph, visibleEdges) : undefined, [graph, selected, visibleEdges]);
-  const repoName = repository?.url.split("/").filter(Boolean).slice(-1)[0] ?? "No repository";
+
+  const connectedIdsForHover = useMemo(() => {
+    if (!hoveredId) return new Set<string>();
+    const ids = new Set<string>([hoveredId]);
+    for (const edge of visibleGraph.edges) {
+      if (edge.source === hoveredId || edge.target === hoveredId) {
+        ids.add(edge.source);
+        ids.add(edge.target);
+      }
+    }
+    return ids;
+  }, [hoveredId, visibleGraph.edges]);
 
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const observer = new ResizeObserver(([entry]) => {
-      const rect = entry.contentRect;
-      setSize({ width: Math.max(320, rect.width), height: Math.max(420, rect.height) });
+    if (!repository) {
+      setEntryPoints([]);
+      setOverviewNodes([]);
+      return;
+    }
+    const current = ++requestSeq.current;
+    Promise.allSettled([
+      api.askGraph(repository.id, "What are the entry points?"),
+      api.graphOverview(repository.id)
+    ]).then(([entryResult, overviewResult]) => {
+      if (current !== requestSeq.current) return;
+      if (entryResult.status === "fulfilled") {
+        setEntryPoints(entryResult.value.nodes.filter((node) => node.isEntryPoint || node.type === "entry_point").slice(0, 10));
+      }
+      if (overviewResult.status === "fulfilled") {
+        setOverviewNodes(overviewResult.value.nodes.slice(0, 15));
+      }
     });
-    observer.observe(svg);
-    return () => observer.disconnect();
-  }, []);
+  }, [repository?.id]);
 
   useEffect(() => {
-    renderGraph();
-  }, [graph, selected?.id, size.width, size.height, severityByNode, relationshipTypes, nodeTypes, riskFilter, highlightedEdgeIds, highlightedNodeIds, layoutMode]);
+    if (!selected || !repository) return;
+    const current = ++detailSeq.current;
+    setSummary(undefined);
+    setNodeContext(undefined);
+    setNodeSource(undefined);
+    setDetailError(undefined);
+    setHighlightPath(undefined);
+    setDetailTab("summary");
+    setSummaryLoading(true);
+    setDetailLoading(true);
+    api.nodeSummary(repository.id, selected.id)
+      .then((response) => {
+        if (current === detailSeq.current) setSummary(response);
+      })
+      .catch((err) => {
+        if (current === detailSeq.current) setSummary({ nodeId: selected.id, summary: humanError(err, "Node summary is unavailable.") });
+      })
+      .finally(() => {
+        if (current === detailSeq.current) setSummaryLoading(false);
+      });
+    Promise.all([api.nodeContext(repository.id, selected.id), api.nodeSource(repository.id, selected.id)])
+      .then(([context, source]) => {
+        if (current !== detailSeq.current) return;
+        setNodeContext(context);
+        setNodeSource(source);
+      })
+      .catch((err) => {
+        if (current === detailSeq.current) setDetailError(humanError(err, "Node intelligence is unavailable."));
+      })
+      .finally(() => {
+        if (current === detailSeq.current) setDetailLoading(false);
+      });
+  }, [selected?.id, repository?.id]);
 
   useEffect(() => {
     if (!preMortem || !graph) return;
@@ -162,107 +248,148 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
   }, []);
 
   useEffect(() => {
-    if (!selected || !repository) return;
-    const currentDetail = ++detailSeq.current;
-    setSummary(undefined);
-    setNodeContext(undefined);
-    setNodeSource(undefined);
-    setDetailError(undefined);
-    setHighlightPath(undefined);
-    setDetailTab("summary");
-    setSummaryLoading(true);
-    setDetailLoading(true);
-    api.nodeSummary(repository.id, selected.id)
-      .then((response) => {
-        if (currentDetail === detailSeq.current) setSummary(response);
-      })
-      .catch((err) => {
-        if (currentDetail === detailSeq.current) setSummary({ nodeId: selected.id, summary: err instanceof Error ? err.message : "Node summary failed." });
-      })
-      .finally(() => {
-        if (currentDetail === detailSeq.current) setSummaryLoading(false);
-      });
-    Promise.all([api.nodeContext(repository.id, selected.id), api.nodeSource(repository.id, selected.id)])
-      .then(([context, source]) => {
-        if (currentDetail !== detailSeq.current) return;
-        setNodeContext(context);
-        setNodeSource(source);
-      })
-      .catch((err) => {
-        if (currentDetail === detailSeq.current) setDetailError(err instanceof Error ? err.message : "Node intelligence failed.");
-      })
-      .finally(() => {
-        if (currentDetail === detailSeq.current) setDetailLoading(false);
-      });
-  }, [selected?.id, repository?.id]);
-
-  useEffect(() => {
-    if (!repository) {
-      setSidebarEntryPoints([]);
-      setOverviewNodes([]);
+    const container = containerRef.current;
+    if (!container || !graph) {
+      rendererRef.current?.kill();
+      rendererRef.current = undefined;
+      graphologyRef.current = undefined;
+      drawMinimap(minimapRef.current, undefined);
       return;
     }
-    api.askGraph(repository.id, "What are the entry points?")
-      .then((view) => setSidebarEntryPoints(view.nodes.filter((node) => node.isEntryPoint || node.type === "entry_point")))
-      .catch(() => setSidebarEntryPoints([]));
-    api.graphOverview(repository.id)
-      .then((view) => setOverviewNodes(view.nodes.slice(0, 15)))
-      .catch(() => setOverviewNodes([]));
-  }, [repository?.id]);
+
+    rendererRef.current?.kill();
+    const sigmaGraph = buildSigmaGraph(visibleGraph, selected?.id, severityByNode);
+    graphologyRef.current = sigmaGraph;
+    const renderer = new Sigma<SigmaNodeAttributes, SigmaEdgeAttributes>(sigmaGraph, container, {
+      allowInvalidContainer: true,
+      autoCenter: true,
+      autoRescale: true,
+      defaultNodeColor: "#4A90D9",
+      defaultEdgeColor: "#343b4a",
+      enableEdgeEvents: true,
+      hideEdgesOnMove: false,
+      hideLabelsOnMove: true,
+      inertiaDuration: 260,
+      inertiaRatio: 0.82,
+      labelColor: { color: "#eef3ff" },
+      labelDensity: 0.055,
+      labelFont: "system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+      labelRenderedSizeThreshold: visibleGraph.nodes.length > 18 ? 12 : 9,
+      labelSize: 11,
+      minCameraRatio: 0.18,
+      maxCameraRatio: 3.2,
+      renderEdgeLabels: false,
+      renderLabels: true,
+      stagePadding: 24,
+      zIndex: true,
+      defaultDrawNodeLabel: drawTwinNodeLabel,
+      defaultDrawNodeHover: drawTwinNodeHover,
+      nodeReducer: (node, data) => reduceNode(node, data, {
+        hoveredId,
+        selectedId: selected?.id,
+        connectedIds: connectedIdsForHover,
+        highlightedNodeIds,
+        severityByNode
+      }),
+      edgeReducer: (edge, data) => reduceEdge(edge, data, {
+        hoveredId,
+        selectedId: selected?.id,
+        highlightedEdgeIds,
+        highlightedNodeIds
+      })
+    });
+    rendererRef.current = renderer;
+    renderer.on("enterNode", ({ node }) => setHoveredId(node));
+    renderer.on("leaveNode", () => setHoveredId(undefined));
+    renderer.on("clickNode", ({ node }) => {
+      const graphNode = sigmaGraph.getNodeAttribute(node, "node");
+      centerNode(graphNode);
+    });
+    renderer.on("clickEdge", ({ edge }) => {
+      const graphEdge = sigmaGraph.getEdgeAttribute(edge, "edge");
+      const source = visibleGraph.nodes.find((node) => node.id === graphEdge.source);
+      const target = visibleGraph.nodes.find((node) => node.id === graphEdge.target);
+      if (source && target) {
+        setSelected(source.id === selected?.id ? target : source);
+        void explainConnection(source.id === selected?.id ? target : source);
+      }
+    });
+    renderer.on("clickStage", () => setHoveredId(undefined));
+    setTimeout(() => {
+      renderer.getCamera().animatedReset({ duration: 420 });
+      drawMinimap(minimapRef.current, sigmaGraph);
+    }, 80);
+
+    return () => {
+      renderer.kill();
+      if (rendererRef.current === renderer) rendererRef.current = undefined;
+    };
+  }, [visibleGraph, selected?.id, severityByNode]);
+
+  useEffect(() => {
+    rendererRef.current?.setSettings({
+      nodeReducer: (node, data) => reduceNode(node, data, {
+        hoveredId,
+        selectedId: selected?.id,
+        connectedIds: connectedIdsForHover,
+        highlightedNodeIds,
+        severityByNode
+      }),
+      edgeReducer: (edge, data) => reduceEdge(edge, data, {
+        hoveredId,
+        selectedId: selected?.id,
+        highlightedEdgeIds,
+        highlightedNodeIds
+      })
+    });
+    rendererRef.current?.refresh();
+  }, [hoveredId, selected?.id, connectedIdsForHover, highlightedEdgeIds, highlightedNodeIds, severityByNode]);
 
   const loadGraph = useCallback(async (
     loader: () => Promise<GraphView>,
-    options: { remember?: string; centeredLabel?: string; selectedId?: string; clearSelection?: boolean; mode?: "overview" | "search" | "impact" } = {}
+    options: { remember?: string; centeredLabel?: string; selectedId?: string; clearSelection?: boolean; mode?: TwinMode } = {}
   ) => {
     if (!repository) {
-      setError("Ingest a repository before exploring the graph.");
+      setError("Ingest a repository before exploring the twin.");
       return;
     }
-    const currentRequest = ++requestSeq.current;
+    const current = ++requestSeq.current;
     setLoading(true);
     setError(undefined);
     try {
       const view = await loader();
-      if (currentRequest !== requestSeq.current) return;
-      setGraph(view);
+      if (current !== requestSeq.current) return;
+      const cleaned = enforceContextualGraph(view);
+      setGraph(cleaned);
+      setMode(options.mode ?? "neighborhood");
+      setCenteredLabel(options.centeredLabel ?? readableCenter(cleaned));
+      setSeverityByNode(new Map(cleaned.nodes.map((node) => [node.id, node.risk]).filter(([, risk]) => risk !== "none") as Array<[string, Risk]>));
       if (options.clearSelection) {
         setSelected(undefined);
       } else if (options.selectedId) {
-        setSelected(view.nodes.find((node) => node.id === options.selectedId));
+        setSelected(cleaned.nodes.find((node) => node.id === options.selectedId));
       }
-      setCenteredLabel(options.centeredLabel ?? view.nodes.find((node) => node.id === options.selectedId)?.name ?? "overview");
-      if (options.mode) setMode(options.mode);
-      setSeverityByNode(new Map(view.nodes.map((node) => [node.id, node.risk]).filter(([, risk]) => risk !== "none") as Array<[string, Risk]>));
       if (options.remember) {
         setLastQuestions((items) => [options.remember!, ...items.filter((item) => item !== options.remember)].slice(0, 3));
       }
     } catch (err) {
-      if (currentRequest !== requestSeq.current) return;
-      setError(err instanceof Error ? err.message : "Graph request failed.");
+      if (current === requestSeq.current) setError(humanError(err, "Graph request failed."));
     } finally {
-      if (currentRequest === requestSeq.current) setLoading(false);
+      if (current === requestSeq.current) setLoading(false);
     }
   }, [repository]);
 
   const askQuestion = (event?: FormEvent, text = question.trim()) => {
     event?.preventDefault();
-    if (!text) return;
-    if (!repository) {
-      setError("Ingest a repository before exploring the graph.");
-      return;
-    }
-    void loadGraph(() => api.askGraph(repository.id, text), { remember: text, centeredLabel: text, clearSelection: true, mode: "search" });
+    if (!text || !repository) return;
+    void loadGraph(() => api.askGraph(repository.id, text), { remember: text, centeredLabel: text, clearSelection: true, mode: classifyQuestion(text) });
   };
 
   const runQuickSearch = () => {
     const term = quickSearch.trim();
-    if (!term) return;
+    if (!term || !repository) return;
     if (quickResults[0]) {
       centerNode(quickResults[0]);
-      return;
-    }
-    if (!repository) {
-      setError("Ingest a repository before searching the twin.");
       return;
     }
     setQuestion(term);
@@ -270,67 +397,76 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
   };
 
   const showOverview = () => {
-    if (!repository) {
-      setError("Ingest a repository before loading the architecture overview.");
-      return;
-    }
-    void loadGraph(() => api.graphOverview(repository.id), { remember: "Show architecture overview", centeredLabel: "architecture overview", clearSelection: true, mode: "overview" });
+    if (!repository) return;
+    void loadGraph(() => api.graphOverview(repository.id), { remember: "Architecture overview", centeredLabel: "architecture overview", clearSelection: true, mode: "overview" });
   };
 
-  const centerNode = (node: GraphNode, nextDepth = depth) => {
+  const showEntryGraph = (node: GraphNode) => centerNode(node, 1, "entry");
+
+  const centerNode = (node: GraphNode, nextDepth = depth, nextMode: TwinMode = "neighborhood") => {
     if (!repository) return;
     setSelected(node);
     setCenteredLabel(node.name);
-    setBreadcrumbs((trail) => [...trail.filter((item) => item.id !== node.id), { id: node.id, name: node.name }].slice(-5));
-    void loadGraph(() => api.queryGraph(repository.id, { type: "node", value: node.id }, nextDepth, relationshipTypes), { centeredLabel: node.name, selectedId: node.id, mode: "overview" });
+    setBreadcrumbs((trail) => [...trail.filter((item) => item.id !== node.id), { id: node.id, name: node.name }].slice(-6));
+    void loadGraph(() => api.queryGraph(repository.id, { type: "node", value: node.id }, nextDepth, relationshipTypes), { centeredLabel: node.name, selectedId: node.id, mode: nextMode });
   };
 
   const revisitBreadcrumb = (crumb: { id: string; name: string }) => {
     const node = graph?.nodes.find((item) => item.id === crumb.id);
-    if (node) {
-      centerNode(node);
-      return;
-    }
-    if (!repository) return;
-    setCenteredLabel(crumb.name);
-    void loadGraph(() => api.queryGraph(repository.id, { type: "node", value: crumb.id }, depth, relationshipTypes), { centeredLabel: crumb.name, selectedId: crumb.id, mode: "overview" });
+    if (node) centerNode(node);
   };
 
   const showImpact = async () => {
     if (!repository) {
-      setError("Ingest a repository before calculating blast radius.");
+      setError("Ingest a repository before calculating impact.");
       return;
     }
     if (!impactText.trim()) {
-      setError("Describe the change before calculating blast radius.");
+      setError("Describe the planned change first.");
       return;
     }
+    const current = ++requestSeq.current;
     setLoading(true);
     setError(undefined);
     try {
-      const premortem = await api.runPremortem(repository.id, impactText, [selected?.id ?? impactText]);
-      const view = await api.blastRadius(repository.id, impactText, [selected?.id ?? impactText], depth, relationshipTypes);
-      setGraph(view);
-      setMode("impact");
-      setCenteredLabel(selected?.name ?? impactText);
+      const target = selected?.id ?? impactText;
+      const [premortem, view] = await Promise.all([
+        api.runPremortem(repository.id, impactText, [target]),
+        api.blastRadius(repository.id, impactText, [target], Math.min(3, Math.max(depth, 2)), relationshipTypes)
+      ]);
+      if (current !== requestSeq.current) return;
+      const cleaned = enforceContextualGraph(view);
       const nextSeverity = new Map<string, Risk>();
-      for (const node of view.nodes) nextSeverity.set(node.id, node.risk);
+      for (const node of cleaned.nodes) nextSeverity.set(node.id, node.risk);
       for (const finding of premortem.findings) {
-        const match = view.nodes.find((node) => node.path === finding.filePath);
+        const match = cleaned.nodes.find((node) => node.path === finding.filePath);
         if (match) nextSeverity.set(match.id, finding.severity);
       }
+      setGraph(cleaned);
+      setMode("impact");
+      setCenteredLabel(selected?.name ?? "planned change");
       setSeverityByNode(nextSeverity);
-      runRipple(nextSeverity);
+      if (!premortem.findings.length && premortem.evidenceGaps.length) {
+        setError(`Impact analysis needs more evidence: ${premortem.evidenceGaps[0]}`);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Blast radius failed.");
+      setError(humanError(err, "Impact analysis failed."));
     } finally {
-      setLoading(false);
+      if (current === requestSeq.current) setLoading(false);
     }
   };
 
+  const changeDepth = (delta: number) => {
+    const next = Math.max(1, Math.min(4, depth + delta));
+    setDepth(next);
+    if (selected) centerNode(selected, next);
+  };
+
   const clearGraph = () => {
-    simulationRef.current?.stop();
     requestSeq.current += 1;
+    rendererRef.current?.kill();
+    rendererRef.current = undefined;
+    graphologyRef.current = undefined;
     setGraph(undefined);
     setSelected(undefined);
     setSummary(undefined);
@@ -346,11 +482,14 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
     setError(undefined);
   };
 
-  const changeDepth = (delta: number) => {
-    const next = Math.max(1, Math.min(4, depth + delta));
-    setDepth(next);
-    if (selected) centerNode(selected, next);
+  const zoomCanvas = (direction: "in" | "out") => {
+    const camera = rendererRef.current?.getCamera();
+    if (!camera) return;
+    const current = camera.getState();
+    camera.animate({ ratio: current.ratio * (direction === "in" ? 0.72 : 1.32) }, { duration: 180 });
   };
+
+  const fitCanvas = () => rendererRef.current?.getCamera().animatedReset({ duration: 300 });
 
   const saveCurrentView = () => {
     if (!graph) return;
@@ -358,12 +497,8 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
       id: `${Date.now()}`,
       name: centeredLabel,
       graph,
+      mode,
       centeredLabel,
-      depth,
-      layoutMode,
-      relationshipTypes,
-      nodeTypes,
-      riskFilter,
       selectedId: selected?.id
     };
     setSavedViews((current) => persistSavedViews([view, ...current.filter((item) => item.name !== view.name)].slice(0, 6)));
@@ -371,22 +506,17 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
 
   const restoreSavedView = (view: SavedTwinView) => {
     setGraph(view.graph);
+    setMode(view.mode);
     setCenteredLabel(view.centeredLabel);
-    setDepth(view.depth);
-    setLayoutMode(view.layoutMode);
-    setRelationshipTypes(view.relationshipTypes);
-    setNodeTypes(view.nodeTypes);
-    setRiskFilter(view.riskFilter);
     setSelected(view.selectedId ? view.graph.nodes.find((node) => node.id === view.selectedId) : undefined);
-    setMode("overview");
   };
 
   const updateAnnotation = (nodeId: string, value: string) => {
     setAnnotations((current) => persistAnnotations({ ...current, [nodeId]: value }));
   };
 
-  const explainConnection = async (target: GraphNode) => {
-    if (!repository || !selected) return;
+  async function explainConnection(target: GraphNode) {
+    if (!repository || !selected || target.id === selected.id) return;
     setPathLoading(true);
     setDetailError(undefined);
     try {
@@ -395,245 +525,15 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
       setGraph((current) => current ? mergePathIntoGraph(current, path) : current);
       setDetailTab("evidence");
     } catch (err) {
-      setDetailError(err instanceof Error ? err.message : "No evidence path was found.");
+      setDetailError(humanError(err, "No evidence path was found."));
     } finally {
       setPathLoading(false);
     }
-  };
-
-  const changeLayoutMode = (next: GraphLayoutMode) => {
-    setLayoutMode(next);
-    if (next === "impact") setRiskFilter("risky");
-    if (next === "call_tree" || next === "dependency") setMode("overview");
-  };
-
-  const toggleRelationship = (relationship: string) => {
-    setRelationshipTypes((current) => current.includes(relationship)
-      ? current.filter((item) => item !== relationship)
-      : [...current, relationship]);
-  };
-
-  const toggleNodeType = (type: string) => {
-    setNodeTypes((current) => current.includes(type)
-      ? current.filter((item) => item !== type)
-      : [...current, type]);
-  };
-
-  const zoomCanvas = (factor: number) => {
-    if (!svgRef.current || !zoomRef.current) return;
-    d3.select(svgRef.current).transition().duration(180).call(zoomRef.current.scaleBy, factor);
-  };
-
-  const fitCurrentGraph = () => {
-    const nodes = simulationRef.current?.nodes() as D3Node[] | undefined;
-    if (nodes?.length) fitGraphToViewport(nodes);
-  };
-
-  function renderGraph() {
-    if (!svgRef.current) return;
-    const svg = d3.select(svgRef.current as SVGSVGElement);
-    simulationRef.current?.stop();
-    svg.selectAll("*").remove();
-
-    const defs = svg.append("defs");
-    defs.append("pattern").attr("id", "dot-grid").attr("width", 30).attr("height", 30).attr("patternUnits", "userSpaceOnUse")
-      .append("circle").attr("cx", 1).attr("cy", 1).attr("r", 1).attr("fill", "rgba(255,255,255,0.06)");
-    defs.append("filter").attr("id", "node-blur").append("feGaussianBlur").attr("stdDeviation", 4);
-    defs.append("marker").attr("id", "arrow").attr("viewBox", "0 0 10 10").attr("refX", 20).attr("refY", 5).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
-      .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "context-stroke");
-
-    svg.append("rect").attr("width", "100%").attr("height", "100%").attr("fill", "url(#dot-grid)");
-    const root = svg.append("g").attr("class", "hf-d3-root");
-    rootGroupRef.current = root.node();
-    zoomRef.current = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.3, 2.8]).on("zoom", (event) => {
-      root.attr("transform", event.transform);
-      root.selectAll<SVGTextElement, D3Node | D3Link>(".hf-d3-label-sub").style("opacity", event.transform.k > 0.72 ? 1 : 0);
-      root.selectAll<SVGTextElement, D3Link>(".hf-d3-edge-label").style("opacity", event.transform.k > 1.05 ? 1 : 0);
-    });
-    svg.call(zoomRef.current);
-
-    if (!graph || graph.nodes.length === 0) {
-      drawMinimap([], []);
-      return;
-    }
-
-    const nodes: D3Node[] = visibleNodes.map((node) => ({ ...node, x: size.width / 2, y: size.height / 2 }));
-    const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const links: D3Link[] = visibleEdges
-      .filter((edge) => nodeById.has(edge.source) && nodeById.has(edge.target))
-      .map((edge) => ({ ...edge, source: edge.source, target: edge.target }));
-    const layoutHints = layoutCoordinates(nodes, links, layoutMode, selected?.id, size.width, size.height);
-
-    const link = root.append("g").attr("class", "hf-d3-links").selectAll<SVGPathElement, D3Link>("path").data(links, (edge) => edge.id).join("path")
-      .attr("class", (edge) => highlightedEdgeIds.has(edge.id) ? "path-highlight" : "")
-      .attr("stroke", (edge) => highlightedEdgeIds.has(edge.id) ? "#ffffff" : (EDGE_COLOR[edge.type] ?? "#333"))
-      .attr("stroke-width", (edge) => highlightedEdgeIds.has(edge.id) ? 3 : edge.type === "extends" ? 2 : edge.type === "depends_on" ? 1 : 1.5)
-      .attr("stroke-opacity", (edge) => highlightedEdgeIds.size && !highlightedEdgeIds.has(edge.id) ? 0.12 : edge.type === "depends_on" ? 0.4 : 0.6)
-      .attr("fill", "none")
-      .attr("marker-end", "url(#arrow)");
-
-    const edgeLabel = root.append("g").selectAll<SVGTextElement, D3Link>("text").data(links, (edge) => edge.id).join("text")
-      .attr("class", "hf-d3-edge-label")
-      .text((edge) => edge.type);
-
-    const node = root.append("g").attr("class", "hf-d3-nodes").selectAll<SVGGElement, D3Node>("g").data(nodes, (item) => item.id).join("g")
-      .attr("class", (item) => `hf-d3-node severity-${severityByNode.get(item.id) ?? "none"} ${selected?.id === item.id ? "selected" : ""} ${highlightedNodeIds.has(item.id) ? "path-highlight" : ""}`)
-      .style("opacity", 0)
-      .call(d3.drag<SVGGElement, D3Node>()
-        .on("start", (event, item) => {
-          if (!event.active) simulationRef.current?.alphaTarget(0.25).restart();
-          item.fx = item.x;
-          item.fy = item.y;
-        })
-        .on("drag", (event, item) => {
-          item.fx = event.x;
-          item.fy = event.y;
-        })
-        .on("end", (event, item) => {
-          if (!event.active) simulationRef.current?.alphaTarget(0);
-          item.fx = null;
-          item.fy = null;
-        }));
-
-    node.each(function (item) {
-      drawNode(d3.select(this), item, severityByNode.get(item.id), selected?.id === item.id || highlightedNodeIds.has(item.id));
-    });
-
-    node.transition().duration(360).style("opacity", 1);
-    node.on("mouseover", (event, item) => hoverNode(item, event, node, link))
-      .on("mouseout", () => resetHover(node, link))
-      .on("click", (_event, item) => {
-        centerNode(item);
-      });
-
-    const simulation = d3.forceSimulation<D3Node>(nodes)
-      .force("link", d3.forceLink<D3Node, D3Link>(links).id((item) => item.id).distance(layoutMode === "call_tree" ? 120 : 80).strength(layoutMode === "cluster" ? 0.48 : 0.3))
-      .force("charge", d3.forceManyBody<D3Node>().strength(layoutMode === "cluster" ? -260 : -400))
-      .force("center", d3.forceCenter(size.width / 2, size.height / 2))
-      .force("x", d3.forceX<D3Node>((item) => layoutHints.get(item.id)?.x ?? size.width / 2).strength(layoutMode === "force" ? 0.02 : 0.22))
-      .force("y", d3.forceY<D3Node>((item) => layoutHints.get(item.id)?.y ?? size.height / 2).strength(layoutMode === "force" ? 0.02 : 0.18))
-      .force("collision", d3.forceCollide<D3Node>(layoutMode === "cluster" ? 48 : 40))
-      .alphaDecay(0.02)
-      .alpha(0.8);
-    simulationRef.current = simulation;
-
-    simulation.on("tick", () => {
-      for (const item of nodes) {
-        item.x = Math.max(70, Math.min(size.width - 70, item.x ?? size.width / 2));
-        item.y = Math.max(70, Math.min(size.height - 70, item.y ?? size.height / 2));
-      }
-      link.attr("d", (edge) => {
-        const source = edge.source as D3Node;
-        const target = edge.target as D3Node;
-        return `M${source.x},${source.y} L${target.x},${target.y}`;
-      });
-      edgeLabel
-        .attr("x", (edge) => ((((edge.source as D3Node).x ?? 0) + ((edge.target as D3Node).x ?? 0)) / 2))
-        .attr("y", (edge) => ((((edge.source as D3Node).y ?? 0) + ((edge.target as D3Node).y ?? 0)) / 2));
-      node.attr("transform", (item) => `translate(${item.x},${item.y})`);
-      drawMinimap(nodes, links);
-    });
-
-    window.setTimeout(() => fitGraphToViewport(nodes), 360);
-    window.setTimeout(() => fitGraphToViewport(nodes), 1100);
-  }
-
-  function hoverNode(item: D3Node, event: MouseEvent, nodes: d3.Selection<SVGGElement, D3Node, SVGGElement, unknown>, links: d3.Selection<SVGPathElement, D3Link, SVGGElement, unknown>) {
-    const related = new Set<string>([item.id]);
-    links.each((edge) => {
-      const source = endpointId(edge.source);
-      const target = endpointId(edge.target);
-      if (source === item.id || target === item.id) {
-        related.add(source);
-        related.add(target);
-      }
-    });
-    nodes.transition().duration(200).style("opacity", (node) => related.has(node.id) ? 1 : 0.1);
-    links.transition().duration(200)
-      .attr("stroke", (edge) => {
-        const source = endpointId(edge.source);
-        const target = endpointId(edge.target);
-        return source === item.id || target === item.id ? "#ffffff" : (EDGE_COLOR[edge.type] ?? "#333");
-      })
-      .attr("stroke-width", (edge) => {
-        const source = endpointId(edge.source);
-        const target = endpointId(edge.target);
-        return source === item.id || target === item.id ? 2.5 : 1.2;
-      })
-      .attr("stroke-opacity", (edge) => {
-        const source = endpointId(edge.source);
-        const target = endpointId(edge.target);
-        return source === item.id || target === item.id ? 1 : 0.05;
-      });
-    setTooltip({ x: event.clientX, y: event.clientY, node: item });
-  }
-
-  function resetHover(nodes: d3.Selection<SVGGElement, D3Node, SVGGElement, unknown>, links: d3.Selection<SVGPathElement, D3Link, SVGGElement, unknown>) {
-    nodes.transition().duration(200).style("opacity", 1);
-    links.transition().duration(200)
-      .attr("stroke", (edge) => EDGE_COLOR[edge.type] ?? "#333")
-      .attr("stroke-width", (edge) => edge.type === "extends" ? 2 : edge.type === "depends_on" ? 1 : 1.5)
-      .attr("stroke-opacity", (edge) => edge.type === "depends_on" ? 0.4 : 0.6);
-    setTooltip(undefined);
-  }
-
-  function fitGraphToViewport(nodes: D3Node[]) {
-    if (!svgRef.current || !zoomRef.current || !nodes.length) return;
-    const xExtent = d3.extent(nodes, (node) => node.x ?? size.width / 2) as [number, number];
-    const yExtent = d3.extent(nodes, (node) => node.y ?? size.height / 2) as [number, number];
-    const graphWidth = Math.max(1, xExtent[1] - xExtent[0]);
-    const graphHeight = Math.max(1, yExtent[1] - yExtent[0]);
-    const padding = Math.min(120, Math.max(48, Math.min(size.width, size.height) * 0.14));
-    const scale = Math.max(
-      0.34,
-      Math.min(
-        1.45,
-        0.92 / Math.max(graphWidth / Math.max(1, size.width - padding), graphHeight / Math.max(1, size.height - padding))
-      )
-    );
-    const tx = size.width / 2 - scale * ((xExtent[0] + xExtent[1]) / 2);
-    const ty = size.height / 2 - scale * ((yExtent[0] + yExtent[1]) / 2);
-    d3.select(svgRef.current)
-      .transition()
-      .duration(300)
-      .call(zoomRef.current.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
-  }
-
-  function drawMinimap(nodes: D3Node[], links: D3Link[]) {
-    const svg = d3.select(minimapRef.current);
-    if (!minimapRef.current) return;
-    svg.selectAll("*").remove();
-    svg.append("rect").attr("width", 120).attr("height", 80).attr("fill", "#11131b").attr("stroke", "#343a46");
-    if (!nodes.length) return;
-    const xExtent = d3.extent(nodes, (node) => node.x ?? 0) as [number, number];
-    const yExtent = d3.extent(nodes, (node) => node.y ?? 0) as [number, number];
-    const x = d3.scaleLinear().domain(xExtent[0] === xExtent[1] ? [xExtent[0] - 1, xExtent[1] + 1] : xExtent).range([8, 112]);
-    const y = d3.scaleLinear().domain(yExtent[0] === yExtent[1] ? [yExtent[0] - 1, yExtent[1] + 1] : yExtent).range([8, 72]);
-    svg.selectAll("line").data(links).join("line")
-      .attr("x1", (edge) => x((edge.source as D3Node).x ?? 0))
-      .attr("y1", (edge) => y((edge.source as D3Node).y ?? 0))
-      .attr("x2", (edge) => x((edge.target as D3Node).x ?? 0))
-      .attr("y2", (edge) => y((edge.target as D3Node).y ?? 0))
-      .attr("stroke", "#354052");
-    svg.selectAll("circle").data(nodes).join("circle")
-      .attr("cx", (node) => x(node.x ?? 0))
-      .attr("cy", (node) => y(node.y ?? 0))
-      .attr("r", 2)
-      .attr("fill", (node) => styleFor(node).stroke);
-    svg.append("rect").attr("x", 2).attr("y", 2).attr("width", 116).attr("height", 76).attr("fill", "none").attr("stroke", "#78a9ff").attr("opacity", 0.55);
-  }
-
-  function runRipple(severity: Map<string, Risk>) {
-    const svg = d3.select(svgRef.current);
-    svg.selectAll<SVGGElement, D3Node>(".hf-d3-node").classed("ripple-critical ripple-high ripple-medium", false);
-    window.setTimeout(() => svg.selectAll<SVGGElement, D3Node>(".hf-d3-node").filter((node) => severity.get(node.id) === "critical").classed("ripple-critical", true), 300);
-    window.setTimeout(() => svg.selectAll<SVGGElement, D3Node>(".hf-d3-node").filter((node) => severity.get(node.id) === "high").classed("ripple-high", true), 600);
-    window.setTimeout(() => svg.selectAll<SVGGElement, D3Node>(".hf-d3-node").filter((node) => severity.get(node.id) === "medium").classed("ripple-medium", true), 900);
   }
 
   return (
-    <section className={`hf-d3-page ${selected ? "has-selection" : ""}`}>
-      <aside className="hf-d3-sidebar">
+    <section className={`hf-d3-page hf-twin-page ${selected ? "has-selection" : ""}`}>
+      <aside className="hf-d3-sidebar hf-twin-intent">
         <div className="hf-d3-sidebar-head">
           <div>
             <h2>Explore</h2>
@@ -641,8 +541,9 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
           </div>
           <span className={`hf-d3-mode ${mode}`}>{mode}</span>
         </div>
+
         <div className="hf-d3-section hf-d3-quick-search">
-          <label htmlFor="twin-symbol-search">Search symbols</label>
+          <label htmlFor="twin-symbol-search">Symbol search</label>
           <div>
             <Search size={14} />
             <input
@@ -655,13 +556,13 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
                   runQuickSearch();
                 }
               }}
-              placeholder="auth, router, app.py..."
+              placeholder="router, auth, OAuth2PasswordBearer"
             />
           </div>
           <button type="button" disabled={!repository || !quickSearch.trim()} onClick={runQuickSearch}>Center result</button>
           {quickResults.length > 0 && (
             <div className="hf-d3-search-results">
-              {quickResults.map((node) => (
+              {quickResults.slice(0, 6).map((node) => (
                 <button type="button" key={node.id} onClick={() => centerNode(node)}>
                   <span>{styleFor(node).icon}</span>
                   <strong>{node.name}</strong>
@@ -670,159 +571,164 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
               ))}
             </div>
           )}
-          <small>Typing filters local known symbols. Backend re-query runs only when you center a result.</small>
+          <small>Search stays local while typing. Backend runs only when you center or ask.</small>
         </div>
+
         <form className="hf-d3-section" onSubmit={askQuestion}>
-          <label>Ask a question</label>
-          <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={"What do you want to understand?\nTry: 'What are the entry points?' or\n'What handles authentication?'"} />
-          <button type="submit" disabled={!repository || loading}>Ask →</button>
+          <label>Ask the twin</label>
+          <textarea
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder={"What do you want to understand?\nTry: \"What are the entry points?\""}
+          />
+          <button type="submit" disabled={!repository || loading || !question.trim()}>Ask →</button>
           <div className="hf-d3-chips">
             {lastQuestions.map((item) => <button type="button" key={item} onClick={() => askQuestion(undefined, item)}>{item}</button>)}
           </div>
         </form>
+
         <section className="hf-d3-section">
           <label>Entry points</label>
-          <small>Start exploring from here</small>
+          <small>Start with execution paths instead of filenames.</small>
           <div className="hf-d3-entry-list">
-            {entryPoints.length ? entryPoints.map((node) => <button type="button" key={node.id} onClick={() => centerNode(node)}>● {node.name}</button>) : <span>No entry points loaded yet.</span>}
+            {entryPoints.length ? entryPoints.map((node) => (
+              <button type="button" key={node.id} onClick={() => showEntryGraph(node)}>● {node.name}</button>
+            )) : <span>Entry points load after ingestion.</span>}
           </div>
         </section>
+
         <section className="hf-d3-section">
           <label>Architecture overview</label>
-          <button type="button" onClick={showOverview} disabled={!repository || loading}>Show full overview</button>
+          <button type="button" onClick={showOverview} disabled={!repository || loading}>Show architecture spine</button>
           <div className="hf-d3-god-list">
-            {overviewNodes.slice(0, 5).map((node) => <button type="button" key={node.id} onClick={() => centerNode(node)}>{node.name}<span>{node.connectionCount}</span></button>)}
+            {overviewNodes.slice(0, 6).map((node) => (
+              <button type="button" key={node.id} onClick={() => centerNode(node)}>{node.name}<span>{node.connectionCount}</span></button>
+            ))}
           </div>
         </section>
+
         <details className="hf-d3-section hf-d3-disclosure">
           <summary>Modes and filters</summary>
-          <label>Graph modes</label>
           <div className="hf-d3-mode-grid">
             {[
-              ["force", "Map"],
-              ["call_tree", "Call tree"],
-              ["dependency", "Dependencies"],
-              ["cluster", "Modules"],
-              ["impact", "Impact"]
+              ["overview", "Overview"],
+              ["entry", "Entry"],
+              ["neighborhood", "Neighborhood"],
+              ["impact", "Impact"],
+              ["review", "Review"],
+              ["memory", "Memory"]
             ].map(([value, label]) => (
-              <button className={layoutMode === value ? "active" : ""} type="button" key={value} onClick={() => changeLayoutMode(value as GraphLayoutMode)}>
+              <button className={mode === value ? "active" : ""} type="button" key={value} onClick={() => setMode(value as TwinMode)}>
                 {label}
               </button>
             ))}
           </div>
-          <small>{layoutMode === "call_tree" ? "Calls only, ranked from the selected center." : layoutMode === "dependency" ? "Imports, extends, and dependencies only." : layoutMode === "cluster" ? "Clusters nodes by module path." : layoutMode === "impact" ? "Risk-marked nodes and impact edges." : "Balanced architecture map."}</small>
           <label>Relationships</label>
           <div className="hf-d3-filter-grid">
             <button className={relationshipTypes.length === 0 ? "active" : ""} type="button" onClick={() => setRelationshipTypes([])}>
-              <span style={{ background: "#d8dee9" }} />
-              all
+              <span style={{ background: "#d8dee9" }} /> all
             </button>
             {RELATIONSHIPS.map((relationship) => (
               <button
                 className={relationshipTypes.length === 0 || relationshipTypes.includes(relationship) ? "active" : ""}
                 key={relationship}
                 type="button"
-                onClick={() => toggleRelationship(relationship)}
+                onClick={() => setRelationshipTypes((current) => current.includes(relationship) ? current.filter((item) => item !== relationship) : [...current, relationship])}
               >
                 <span style={{ background: EDGE_COLOR[relationship] ?? "#555" }} />
                 {relationship.replace("_", " ")}
               </button>
             ))}
           </div>
-          <small>{relationshipTypes.length === 0 ? "All relationships visible" : `${relationshipTypes.length} relationship filters active`}</small>
-          <label>Visible nodes</label>
+          <label>Node types</label>
           <div className="hf-d3-filter-grid">
             <button className={nodeTypes.length === 0 ? "active" : ""} type="button" onClick={() => setNodeTypes([])}>
-              <span style={{ background: "#d8dee9" }} />
-              all types
+              <span style={{ background: "#d8dee9" }} /> all types
             </button>
             {NODE_TYPES.map((type) => (
               <button
                 className={nodeTypes.length === 0 || nodeTypes.includes(type) ? "active" : ""}
                 key={type}
                 type="button"
-                onClick={() => toggleNodeType(type)}
+                onClick={() => setNodeTypes((current) => current.includes(type) ? current.filter((item) => item !== type) : [...current, type])}
               >
                 <span style={{ background: NODE_STYLE[type].stroke }} />
                 {type.replace("_", " ")}
               </button>
             ))}
             <button className={riskFilter === "risky" ? "active" : ""} type="button" onClick={() => setRiskFilter((value) => value === "risky" ? "all" : "risky")}>
-              <span style={{ background: "#F39C12" }} />
-              high risk only
+              <span style={{ background: "#F39C12" }} /> risk only
             </button>
           </div>
-          <small>{visibleNodes.length || 0} nodes visible</small>
         </details>
-        <details className="hf-d3-section hf-d3-disclosure">
-          <summary>Impact and saved views</summary>
-          <label>Blast radius</label>
+
+        <details className="hf-d3-section hf-d3-disclosure" open>
+          <summary>Impact and views</summary>
+          <label>Planned change</label>
           <textarea value={impactText} onChange={(event) => setImpactText(event.target.value)} placeholder="What are you planning to change?" />
-          <button type="button" onClick={showImpact} disabled={!repository || loading}>Show impact →</button>
-          <label>Saved views</label>
+          <button type="button" disabled={!repository || loading || !impactText.trim()} onClick={showImpact}>Show impact →</button>
           <button type="button" onClick={saveCurrentView} disabled={!graph}>Save current view</button>
           <div className="hf-d3-god-list">
             {savedViews.map((view) => <button type="button" key={view.id} onClick={() => restoreSavedView(view)}>{view.name}<span>{view.graph.nodes.length}</span></button>)}
           </div>
         </details>
       </aside>
-      <div className="hf-d3-main">
+
+      <div className="hf-d3-main hf-twin-main">
         <div className="hf-d3-status">
-          <span>{graph ? `Centered on ${centeredLabel} — ${graph.nodes.length} nodes, ${visibleEdges.length} edges at depth ${depth}` : "No graph loaded"}</span>
-          <nav>
+          <span>{graph ? `Centered on ${centeredLabel} — ${visibleGraph.nodes.length} nodes, ${visibleGraph.edges.length} edges at depth ${depth}` : "No graph loaded"}</span>
+          <nav aria-label="Twin breadcrumb">
             <button type="button" onClick={clearGraph}>Home</button>
-            {breadcrumbs.map((item) => (
-              <button type="button" key={item.id} onClick={() => revisitBreadcrumb(item)}>› {item.name}</button>
-            ))}
+            {breadcrumbs.map((crumb) => <button type="button" key={crumb.id} onClick={() => revisitBreadcrumb(crumb)}>{crumb.name}</button>)}
           </nav>
           <div>
             <button type="button" onClick={() => changeDepth(-1)}>−</button>
-            <strong>{depth}</strong>
+            <span>Depth {depth}</span>
             <button type="button" onClick={() => changeDepth(1)}>+</button>
-            <button type="button" onClick={clearGraph}><RotateCcw size={14} /> Reset</button>
+            <button type="button" onClick={clearGraph}>× Clear</button>
           </div>
         </div>
+
         {graph && (
           <div className="hf-d3-insight-bar">
             <span><GitBranch size={14} /> {graphStats.entryPoints} entry points</span>
             <span>{graphStats.files} files</span>
             <span>{graphStats.functions} functions</span>
             <span>{graphStats.classes} classes</span>
+            <span>{graphStats.subsystems} subsystems</span>
             <span className={graphStats.risky > 0 ? "risk" : ""}>{graphStats.risky} risk-marked</span>
-            <span>{layoutMode.replace("_", " ")} mode</span>
           </div>
         )}
-        <div className="hf-d3-canvas">
-          <svg ref={svgRef} width="100%" height="100%" role="img" aria-label="Repository architecture graph" />
+
+        <div className="hf-d3-canvas hf-sigma-canvas">
+          <div ref={containerRef} className="hf-sigma-stage" aria-label="Repository architecture graph" />
           {!graph && <EmptyState onAsk={(text) => askQuestion(undefined, text)} onOverview={showOverview} />}
-          {loading && <div className="hf-d3-loading">Loading graph…</div>}
+          {loading && <div className="hf-d3-loading">Loading contextual graph…</div>}
           {error && <div className="hf-d3-error">{error}</div>}
-          {tooltip && <div className="hf-d3-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}>{tooltip.node.name}<span>{tooltip.node.type} · {tooltip.node.connectionCount} links</span></div>}
           {graph && (
-            <div className="hf-d3-canvas-controls" aria-label="Graph viewport controls">
-              <button type="button" onClick={() => zoomCanvas(1.18)}>+</button>
-              <button type="button" onClick={() => zoomCanvas(0.84)}>−</button>
-              <button type="button" onClick={fitCurrentGraph}>Fit</button>
-            </div>
+            <>
+              <div className="hf-d3-canvas-controls" aria-label="Graph viewport controls">
+                <button type="button" onClick={() => zoomCanvas("in")} aria-label="Zoom in"><ZoomIn size={14} /></button>
+                <button type="button" onClick={() => zoomCanvas("out")} aria-label="Zoom out"><ZoomOut size={14} /></button>
+                <button type="button" onClick={fitCanvas} aria-label="Fit graph"><Maximize2 size={14} /></button>
+                <button type="button" onClick={clearGraph} aria-label="Reset graph"><RotateCcw size={14} /></button>
+              </div>
+              <div className="hf-d3-legend" aria-label="Graph legend">
+                {Object.entries(NODE_STYLE).filter(([type]) => type !== "repository").map(([type, style]) => (
+                  <span key={type}><i style={{ background: style.stroke }} />{style.label}</span>
+                ))}
+                <span><i style={{ background: "#ffffff" }} />selected</span>
+                <span><i style={{ background: "#E74C3C" }} />critical</span>
+              </div>
+              <canvas ref={minimapRef} className="hf-d3-minimap hf-sigma-minimap" width="120" height="80" />
+            </>
           )}
-          {graph && (
-            <div className="hf-d3-legend" aria-label="Graph legend">
-              {[
-                ["entry_point", "Entry"],
-                ["file", "File"],
-                ["function", "Function"],
-                ["class", "Class"]
-              ].map(([type, label]) => (
-                <span key={type}><i style={{ background: NODE_STYLE[type].stroke }} />{label}</span>
-              ))}
-            </div>
-          )}
-          {graph && <svg ref={minimapRef} className="hf-d3-minimap" width="120" height="80" />}
         </div>
       </div>
+
       {selected && (
-        <aside className="hf-d3-detail">
-          <button className="hf-d3-close" type="button" onClick={() => setSelected(undefined)}><X size={16} /></button>
+        <aside className="hf-d3-detail hf-twin-detail">
+          <button className="hf-d3-close" type="button" onClick={() => setSelected(undefined)} aria-label="Close node details"><X size={16} /></button>
           <div className="hf-d3-detail-head">
             <div>
               <h2>{selected.name}</h2>
@@ -831,10 +737,11 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
             <span className="hf-d3-type" style={{ borderColor: styleFor(selected).stroke }}>{selected.type}</span>
           </div>
           <div className="hf-d3-node-meta">
-            {selected.startLine && <span>Line {selected.startLine}{selected.endLine ? `-${selected.endLine}` : ""}</span>}
-            <span>{selected.lastModifiedBy ? `Modified by ${selected.lastModifiedBy}` : "Owner unknown"}</span>
-            <span>{selected.connectionCount} links</span>
+            <span>Lines {selected.startLine ?? "?"}-{selected.endLine ?? "?"}</span>
+            <span>{selected.connectionCount} connections</span>
+            <span>Owner {selected.owner ?? selected.lastModifiedBy ?? "unknown"}</span>
           </div>
+
           <div className="hf-d3-detail-tabs" role="tablist" aria-label="Node intelligence sections">
             {DETAIL_TABS.map(({ tab, icon: Icon, label }) => (
               <button className={detailTab === tab ? "active" : ""} type="button" key={tab} onClick={() => setDetailTab(tab)}>
@@ -843,84 +750,92 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
             ))}
           </div>
           {detailError && <div className="hf-d3-detail-error">{detailError}</div>}
+
           {detailTab === "summary" && (
             <section>
               <h3>Plain-English summary</h3>
-              {summaryLoading ? <div className="hf-d3-skeleton" /> : <p>{summary?.summary ?? "Select a node to load a summary."}</p>}
+              {summaryLoading ? <div className="hf-d3-skeleton" /> : <p>{summary?.summary ?? "No summary available yet."}</p>}
               <label className="hf-d3-annotation">
                 Team note
-                <textarea
-                  value={annotations[selected.id] ?? ""}
-                  onChange={(event) => updateAnnotation(selected.id, event.target.value)}
-                  placeholder="Add onboarding notes, ownership context, or review observations for this node."
-                />
+                <textarea value={annotations[selected.id] ?? ""} onChange={(event) => updateAnnotation(selected.id, event.target.value)} placeholder="Add review notes or architectural context." />
               </label>
-              <div className="hf-d3-action-grid">
-                <button type="button" onClick={() => setImpactText(`Change ${selected.name}`)}><ShieldAlert size={14} /> Prepare pre-mortem</button>
-                <button type="button" onClick={showImpact}><Network size={14} /> Show blast radius</button>
-                <button type="button" onClick={() => selected.path && navigator.clipboard?.writeText(`${selected.path}:${selected.startLine ?? 1}`)}>Copy source ref</button>
-              </div>
             </section>
           )}
+
           {detailTab === "relationships" && (
             <section>
               <h3>Callers, callees, imports</h3>
               {detailLoading && <div className="hf-d3-skeleton" />}
-              {!detailLoading && nodeContext?.relationshipGroups.length === 0 && <small>No relationships found for this node.</small>}
               <div className="hf-d3-relationship-groups">
-                {nodeContext?.relationshipGroups.map((group) => (
+                {(nodeContext?.relationshipGroups ?? []).map((group) => (
                   <div key={`${group.direction}-${group.relationship}`}>
-                    <h4>{group.direction === "incoming" ? "Incoming" : "Outgoing"} {group.relationship.replace("_", " ")}</h4>
+                    <h4>{group.direction} {group.relationship}</h4>
                     {group.nodes.map((node) => (
                       <div className="hf-d3-rel-row" key={`${group.direction}-${group.relationship}-${node.id}`}>
-                        <button type="button" onClick={() => centerNode(node)}>{styleFor(node).icon} <span>{node.name}<small>{node.path ?? node.type}</small></span></button>
-                        <button type="button" onClick={() => explainConnection(node)} disabled={pathLoading}>Why?</button>
+                        <button type="button" onClick={() => centerNode(node)}>
+                          <span>{node.name}</span>
+                          <small>{node.path ?? node.type}</small>
+                        </button>
+                        <button type="button" onClick={() => explainConnection(node)}>Why?</button>
                       </div>
                     ))}
                   </div>
                 ))}
+                {!detailLoading && !nodeContext?.relationshipGroups?.length && <small>No relationship evidence returned for this node.</small>}
               </div>
             </section>
           )}
+
           {detailTab === "code" && (
             <section>
               <h3>Source evidence</h3>
               {detailLoading && <div className="hf-d3-skeleton" />}
-              {!detailLoading && nodeSource?.unavailableReason && <p>{nodeSource.unavailableReason}</p>}
+              {nodeSource?.unavailableReason && <p>{nodeSource.unavailableReason}</p>}
               {!detailLoading && nodeSource?.snippet && <pre className="hf-d3-code"><code>{nodeSource.snippet}</code></pre>}
+              <div className="hf-d3-action-grid">
+                <button type="button" disabled={!nodeSource?.path}>Open in editor</button>
+                <button type="button" disabled={!nodeSource?.path}>Open in GitHub</button>
+              </div>
             </section>
           )}
+
           {detailTab === "evidence" && (
             <section>
               <h3>Why connected?</h3>
               {pathLoading && <div className="hf-d3-skeleton" />}
               {highlightPath ? (
                 <div className="hf-d3-path-card">
-                  <strong>{highlightPath.confidence} evidence path</strong>
+                  <strong>{highlightPath.confidence} confidence</strong>
                   <p>{highlightPath.explanation}</p>
-                  <ol>
-                    {highlightPath.edges.map((edge) => <li key={edge.id}>{edge.type.replace("_", " ")} {edge.evidencePath ? `in ${edge.evidencePath}${edge.evidenceLine ? `:${edge.evidenceLine}` : ""}` : "from twin edge evidence"}</li>)}
-                  </ol>
+                  <ol>{highlightPath.nodes.map((node) => <li key={node.id}>{node.name}</li>)}</ol>
                 </div>
-              ) : <small>Open Links and press “Why?” on a neighbor to highlight the exact path.</small>}
+              ) : <p>Select a neighbor and press Why to show the dependency path.</p>}
               <div className="hf-d3-evidence-list">
-                {nodeContext?.evidenceEdges.slice(0, 12).map((edge) => (
-                  <span key={edge.id}>{edge.type.replace("_", " ")} · {edge.evidencePath ?? "twin edge"}{edge.evidenceLine ? `:${edge.evidenceLine}` : ""}</span>
+                {(nodeContext?.evidenceEdges ?? []).slice(0, 8).map((edge) => (
+                  <span key={edge.id}>{edge.type}: {edge.evidencePath ?? "twin edge"}{edge.evidenceLine ? `:${edge.evidenceLine}` : ""}</span>
                 ))}
               </div>
             </section>
           )}
+
           {detailTab === "risk" && (
             <section>
-              <h3>Impact posture</h3>
+              <h3>Impact readiness</h3>
               <div className={`hf-d3-risk-card risk-${severityByNode.get(selected.id) ?? selected.risk}`}>
-                <strong>{(severityByNode.get(selected.id) ?? selected.risk).toUpperCase()}</strong>
-                <p>Risk is derived from twin metadata and pre-mortem overlays. HIGH and CRITICAL findings require human approval before automation.</p>
-                {impactStats && <small>{impactStats.direct} direct neighbors, {impactStats.transitive} transitive nodes, {impactStats.confidence}% confidence from exact twin edges.</small>}
+                <strong>{severityByNode.get(selected.id) ?? selected.risk}</strong>
+                <p>{impactCopy(selected, graph, visibleGraph.edges)}</p>
+              </div>
+              <div className="hf-d3-connected-list">
+                {connectedNodes.slice(0, 12).map((node) => (
+                  <button type="button" key={node.id} onClick={() => centerNode(node)}>
+                    <span>{node.name}</span>
+                    <small>{node.path ?? node.type}</small>
+                  </button>
+                ))}
               </div>
               <div className="hf-d3-action-grid">
-                <button type="button" onClick={() => setImpactText(`Change ${selected.name}`)}><ShieldAlert size={14} /> Run pre-mortem</button>
-                <button type="button" onClick={showImpact}><Network size={14} /> Calculate impact</button>
+                <button type="button" onClick={() => { setImpactText(`Change ${selected.name}`); setMode("impact"); }}>Prepare impact report</button>
+                <button type="button" onClick={() => { setQuestion(`What breaks if I change ${selected.name}?`); askQuestion(undefined, `What breaks if I change ${selected.name}?`); }}>Ask risk question</button>
               </div>
             </section>
           )}
@@ -930,160 +845,418 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
   );
 }
 
-function drawNode(selection: d3.Selection<SVGGElement, D3Node, null, undefined>, node: D3Node, severity?: Risk, selected = false) {
-  const style = styleFor(node, severity);
-  selection.append("circle").attr("r", 28).attr("fill", style.stroke).attr("opacity", selected ? 0.4 : 0.15).attr("filter", "url(#node-blur)");
-  if (node.type === "entry_point") {
-    selection.append("path").attr("d", d3.symbol().type(d3.symbolStar).size(1050)() ?? "").attr("fill", style.fill).attr("stroke", selected ? "#ffffff" : style.stroke).attr("stroke-width", selected ? 3 : 2);
-  } else if (node.type === "file") {
-    selection.append("rect").attr("x", -34).attr("y", -18).attr("width", 68).attr("height", 36).attr("rx", 7).attr("fill", style.fill).attr("stroke", selected ? "#ffffff" : style.stroke).attr("stroke-width", selected ? 3 : 1.5);
-  } else if (node.type === "class") {
-    selection.append("rect").attr("x", -19).attr("y", -19).attr("width", 38).attr("height", 38).attr("transform", "rotate(45)").attr("fill", style.fill).attr("stroke", selected ? "#ffffff" : style.stroke).attr("stroke-width", selected ? 3 : 1.5);
-  } else {
-    selection.append("circle").attr("r", 22).attr("fill", style.fill).attr("stroke", selected ? "#ffffff" : style.stroke).attr("stroke-width", selected ? 3 : 1.5);
-  }
-  selection.append("text").attr("class", "hf-d3-label-main").attr("dy", -2).text(truncate(node.name, 18));
-  selection.append("text").attr("class", "hf-d3-label-sub").attr("dy", 13).text(truncate(node.path ?? node.type, 24));
-}
-
-function EmptyState({ onAsk, onOverview }: { onAsk: (question: string) => void; onOverview: () => void }) {
+function EmptyState({ onAsk, onOverview }: { onAsk: (text: string) => void; onOverview: () => void }) {
   return (
-    <div className="hf-d3-empty">
-      <Network size={42} />
+    <div className="hf-d3-empty hf-twin-empty">
+      <Network />
       <h2>Your codebase, understood</h2>
-      <p>Ask a question or pick an entry point to begin</p>
-      <div>{SUGGESTIONS.map((item) => <button key={item} type="button" onClick={() => item.includes("overview") ? onOverview() : onAsk(item)}>{item}</button>)}</div>
+      <p>Start with intent: ask a question, choose an entry point, or load a small architecture spine. The full universe is never shown.</p>
+      <div>
+        {SUGGESTIONS.map((item) => (
+          <button type="button" key={item} onClick={() => item === "Show architecture overview" ? onOverview() : onAsk(item)}>
+            <Sparkles size={14} /> {item}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-function connectedNodeList(nodeId: string, graph: GraphView | undefined, edges: GraphEdge[]): GraphNode[] {
+function buildSigmaGraph(view: GraphView, selectedId: string | undefined, severityByNode: Map<string, Risk>): SigmaGraph {
+  const graph = new Graph<SigmaNodeAttributes, SigmaEdgeAttributes>({ multi: true, type: "directed" });
+  const subsystems = subsystemMap(view.nodes);
+  const center = selectedId ?? (view.center.type === "node" ? view.center.value : view.nodes[0]?.id);
+  for (const [index, node] of view.nodes.entries()) {
+    const subsystem = subsystemFor(node);
+    const style = styleFor(node);
+    const angle = (index / Math.max(1, view.nodes.length)) * Math.PI * 2;
+    const radius = node.id === center ? 0.02 : 1 + Math.log2(index + 2) * 0.18;
+    const severity = severityByNode.get(node.id) ?? node.risk;
+    const severityColor = SEVERITY_COLOR[severity];
+    graph.addNode(node.id, {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+      size: nodeSize(node),
+      label: labelFor(node),
+      color: severityColor ? darkenForSeverity(severity) : style.fill,
+      borderColor: severityColor ?? subsystemColor(subsystems.get(subsystem) ?? 0),
+      type: "circle",
+      node,
+      subsystem,
+      severity,
+      forceLabel: node.id === selectedId || Boolean(node.isEntryPoint),
+      zIndex: node.id === selectedId ? 8 : node.isEntryPoint ? 5 : 1
+    });
+  }
+  for (const edge of view.edges) {
+    if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
+    const color = EDGE_COLOR[edge.type] ?? "#404758";
+    graph.addDirectedEdgeWithKey(edge.id, edge.source, edge.target, {
+      label: edge.type,
+      color,
+      size: edge.type === "extends" ? 2 : edge.type === "depends_on" ? 1 : 1.4,
+      type: edge.type === "depends_on" ? "line" : "arrow",
+      relationship: edge.type,
+      edge
+    });
+  }
+  if (graph.order > 1) {
+    try {
+      forceAtlas2.assign(graph, {
+        iterations: graph.order > 28 ? 110 : 70,
+        settings: {
+          adjustSizes: true,
+          barnesHutOptimize: graph.order > 40,
+          edgeWeightInfluence: 0.6,
+          gravity: 1.35,
+          linLogMode: false,
+          scalingRatio: 6,
+          slowDown: 4,
+          strongGravityMode: true
+        }
+      });
+    } catch {
+      // Keep deterministic radial coordinates if the layout engine cannot run.
+    }
+  }
+  sanitizeGraphPositions(graph);
+  if (center && graph.hasNode(center)) {
+    graph.setNodeAttribute(center, "x", 0);
+    graph.setNodeAttribute(center, "y", 0);
+    graph.setNodeAttribute(center, "forceLabel", true);
+  }
+  sanitizeGraphPositions(graph);
+  return graph;
+}
+
+function sanitizeGraphPositions(graph: SigmaGraph) {
+  const total = Math.max(1, graph.order);
+  let index = 0;
+  graph.forEachNode((node, attrs) => {
+    if (Number.isFinite(attrs.x) && Number.isFinite(attrs.y)) {
+      index += 1;
+      return;
+    }
+    const angle = (index / total) * Math.PI * 2;
+    const radius = 1.2 + Math.floor(index / Math.max(1, Math.ceil(Math.sqrt(total)))) * 0.35;
+    graph.mergeNodeAttributes(node, {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius
+    });
+    index += 1;
+  });
+}
+
+function reduceNode(node: string, data: SigmaNodeAttributes, state: {
+  hoveredId?: string;
+  selectedId?: string;
+  connectedIds: Set<string>;
+  highlightedNodeIds: Set<string>;
+  severityByNode: Map<string, Risk>;
+}) {
+  const severity = state.severityByNode.get(node) ?? data.severity;
+  const selected = node === state.selectedId;
+  const hovered = node === state.hoveredId;
+  const highlighted = state.highlightedNodeIds.has(node);
+  const unrelated = state.hoveredId && !state.connectedIds.has(node);
+  const severityColor = SEVERITY_COLOR[severity];
+  return {
+    x: Number.isFinite(data.x) ? data.x : 0,
+    y: Number.isFinite(data.y) ? data.y : 0,
+    color: unrelated ? "#171d29" : selected ? "#f8fbff" : hovered ? "#49d8d3" : severityColor ? darkenForSeverity(severity) : data.color,
+    size: unrelated ? Math.max(3, data.size * 0.72) : selected ? data.size + 4 : hovered || highlighted ? data.size + 3 : data.size,
+    label: unrelated ? "" : data.label,
+    forceLabel: selected || hovered || highlighted || data.forceLabel,
+    highlighted: false,
+    borderColor: selected ? "#ffffff" : severityColor ?? data.borderColor,
+    zIndex: selected ? 20 : hovered || highlighted ? 15 : data.zIndex ?? 1,
+    hidden: false
+  };
+}
+
+function reduceEdge(edge: string, data: SigmaEdgeAttributes, state: {
+  hoveredId?: string;
+  selectedId?: string;
+  highlightedEdgeIds: Set<string>;
+  highlightedNodeIds: Set<string>;
+}) {
+  const source = data.edge.source;
+  const target = data.edge.target;
+  const connectedToHover = state.hoveredId && (source === state.hoveredId || target === state.hoveredId);
+  const connectedToSelected = state.selectedId && (source === state.selectedId || target === state.selectedId);
+  const highlighted = state.highlightedEdgeIds.has(edge) || (state.highlightedNodeIds.has(source) && state.highlightedNodeIds.has(target));
+  const dimmed = state.hoveredId && !connectedToHover;
+  return {
+    color: dimmed ? "#151923" : connectedToHover || highlighted ? "#ffffff" : data.color,
+    size: dimmed ? 0.35 : connectedToHover || highlighted ? Math.max(2.8, data.size + 1.4) : connectedToSelected ? data.size + 0.7 : data.size,
+    hidden: false,
+    label: connectedToHover || highlighted ? data.label : "",
+    zIndex: connectedToHover || highlighted ? 20 : connectedToSelected ? 10 : 1
+  };
+}
+
+function drawTwinNodeLabel(context: CanvasRenderingContext2D, data: { x: number; y: number; size: number; label: string | null; color: string }, _settings: unknown) {
+  if (!data.label) return;
+  const label = data.label.length > 42 ? `${data.label.slice(0, 39)}...` : data.label;
+  context.save();
+  context.font = "600 11px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  const width = Math.min(270, context.measureText(label).width + 18);
+  const x = data.x + data.size + 8;
+  const y = data.y - 13;
+  roundRect(context, x, y, width, 24, 6);
+  context.fillStyle = "rgba(9, 13, 20, 0.88)";
+  context.fill();
+  context.strokeStyle = "rgba(120, 169, 255, 0.28)";
+  context.lineWidth = 1;
+  context.stroke();
+  context.fillStyle = "#e7edf8";
+  context.fillText(label, x + 9, y + 16);
+  context.restore();
+}
+
+function drawTwinNodeHover(context: CanvasRenderingContext2D, data: { x: number; y: number; size: number; label: string | null; color: string }, settings: unknown) {
+  context.save();
+  context.shadowColor = "rgba(8, 189, 186, 0.52)";
+  context.shadowBlur = 18;
+  context.beginPath();
+  context.arc(data.x, data.y, data.size + 4, 0, Math.PI * 2);
+  context.fillStyle = "rgba(8, 189, 186, 0.16)";
+  context.fill();
+  context.lineWidth = 2;
+  context.strokeStyle = "#08bdba";
+  context.stroke();
+  context.restore();
+  drawTwinNodeLabel(context, data, settings);
+}
+
+function roundRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.lineTo(x + width - radius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + radius);
+  context.lineTo(x + width, y + height - radius);
+  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  context.lineTo(x + radius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - radius);
+  context.lineTo(x, y + radius);
+  context.quadraticCurveTo(x, y, x + radius, y);
+  context.closePath();
+}
+
+function filterGraph(
+  graph: GraphView | undefined,
+  relationshipTypes: string[],
+  nodeTypes: string[],
+  riskFilter: "all" | "risky",
+  severityByNode: Map<string, Risk>,
+  selectedId?: string
+): GraphView {
+  if (!graph) return { center: { type: "query", value: "" }, depth: 0, nodes: [], edges: [], riskSummary: {} };
+  const nodes = graph.nodes.filter((node) => {
+    if (node.id === selectedId) return true;
+    if (nodeTypes.length && !nodeTypes.includes(node.type)) return false;
+    if (riskFilter === "risky") {
+      const risk = severityByNode.get(node.id) ?? node.risk;
+      return risk === "critical" || risk === "high" || risk === "medium" || risk === "blocked_insufficient_evidence";
+    }
+    return true;
+  });
+  const ids = new Set(nodes.map((node) => node.id));
+  const edges = graph.edges.filter((edge) =>
+    ids.has(edge.source)
+    && ids.has(edge.target)
+    && (relationshipTypes.length === 0 || relationshipTypes.includes(edge.type))
+  );
+  return { ...graph, nodes, edges };
+}
+
+function enforceContextualGraph(view: GraphView): GraphView {
+  const cap = view.depth <= 1 ? 12 : view.depth === 2 ? 25 : view.depth === 3 ? 40 : 50;
+  const nodes = view.nodes
+    .filter((node) => !isNoiseNode(node))
+    .sort((a, b) => Number(b.id === view.center.value) - Number(a.id === view.center.value) || b.connectionCount - a.connectionCount)
+    .slice(0, cap);
+  const ids = new Set(nodes.map((node) => node.id));
+  return { ...view, nodes, edges: view.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)) };
+}
+
+function styleFor(node: GraphNode) {
+  if (node.isEntryPoint || node.type === "entry_point") return NODE_STYLE.entry_point;
+  return NODE_STYLE[node.type] ?? NODE_STYLE.file;
+}
+
+function nodeSize(node: GraphNode) {
+  if (node.isEntryPoint || node.type === "entry_point") return 11;
+  if (node.type === "class") return 9.5;
+  if (node.type === "file") return 8.5;
+  return 7.5;
+}
+
+function labelFor(node: GraphNode) {
+  return `${node.name}${node.path ? `  ·  ${truncatePath(node.path, 28)}` : ""}`;
+}
+
+function readableCenter(view: GraphView) {
+  if (view.center.type === "node") return view.nodes.find((node) => node.id === view.center.value)?.name ?? "selected node";
+  return view.center.value || "overview";
+}
+
+function classifyQuestion(text: string): TwinMode {
+  const value = text.toLowerCase();
+  if (value.includes("entry")) return "entry";
+  if (value.includes("impact") || value.includes("break")) return "impact";
+  if (value.includes("review") || value.includes("pr") || value.includes("merge request")) return "review";
+  if (value.includes("memory") || value.includes("decision") || value.includes("mistake")) return "memory";
+  if (value.includes("overview") || value.includes("critical") || value.includes("connected")) return "overview";
+  return "search";
+}
+
+function searchNodes(query: string, nodes: GraphNode[], severityByNode: Map<string, Risk>) {
+  const terms = query.toLowerCase().split(/[^a-z0-9_./-]+/).filter(Boolean);
+  if (!terms.length) return [];
+  return nodes
+    .map((node) => ({ node, score: scoreNode(node, terms, severityByNode) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || b.node.connectionCount - a.node.connectionCount)
+    .slice(0, 8)
+    .map((item) => item.node);
+}
+
+function scoreNode(node: GraphNode, terms: string[], severityByNode: Map<string, Risk>) {
+  const haystack = `${node.name} ${node.path ?? ""} ${node.type}`.toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (node.name.toLowerCase() === term) score += 20;
+    else if (node.name.toLowerCase().includes(term)) score += 12;
+    else if (haystack.includes(term)) score += 5;
+  }
+  if (node.isEntryPoint) score += 3;
+  if (severityByNode.get(node.id) === "critical" || severityByNode.get(node.id) === "high") score += 2;
+  return score + Math.min(8, node.connectionCount / 4);
+}
+
+function connectedNodeList(nodeId: string, graph: GraphView | undefined, edges: GraphEdge[]) {
   if (!graph) return [];
   const ids = new Set<string>();
   for (const edge of edges) {
     if (edge.source === nodeId) ids.add(edge.target);
     if (edge.target === nodeId) ids.add(edge.source);
   }
-  return graph.nodes.filter((node) => ids.has(node.id));
+  return graph.nodes.filter((node) => ids.has(node.id)).sort((a, b) => b.connectionCount - a.connectionCount);
 }
 
-function uniqueNodes(nodes: GraphNode[]): GraphNode[] {
-  const seen = new Set<string>();
-  const result: GraphNode[] = [];
-  for (const node of nodes) {
-    if (seen.has(node.id)) continue;
-    seen.add(node.id);
-    result.push(node);
-  }
-  return result;
-}
-
-function searchNodes(query: string, nodes: GraphNode[], severityByNode: Map<string, Risk>): GraphNode[] {
-  const term = query.trim().toLowerCase();
-  if (term.length < 2) return [];
-  const tokens = term.split(/\s+/).filter(Boolean);
-  const filters = {
-    type: tokenValue(tokens, "type"),
-    path: tokenValue(tokens, "path"),
-    risk: tokenValue(tokens, "risk")
-  };
-  const textTerms = tokens.filter((token) => !token.includes(":"));
-  return nodes
-    .map((node) => {
-      const haystack = `${node.name} ${node.path ?? ""} ${node.type}`.toLowerCase();
-      const textMatch = textTerms.length === 0 || textTerms.every((item) => haystack.includes(item));
-      const typeMatch = !filters.type || node.type === filters.type || (filters.type === "entry" && node.type === "entry_point");
-      const pathMatch = !filters.path || (node.path ?? "").toLowerCase().includes(filters.path);
+function summarizeNodes(nodes: GraphNode[], severityByNode: Map<string, Risk>) {
+  const subsystems = new Set(nodes.map(subsystemFor));
+  return {
+    entryPoints: nodes.filter((node) => node.isEntryPoint || node.type === "entry_point").length,
+    files: nodes.filter((node) => node.type === "file").length,
+    functions: nodes.filter((node) => node.type === "function").length,
+    classes: nodes.filter((node) => node.type === "class").length,
+    subsystems: subsystems.size,
+    risky: nodes.filter((node) => {
       const risk = severityByNode.get(node.id) ?? node.risk;
-      const riskMatch = !filters.risk || risk === filters.risk;
-      const starts = textTerms.some((item) => node.name.toLowerCase().startsWith(item)) ? 0 : 1;
-      const contains = textMatch && typeMatch && pathMatch && riskMatch ? 0 : 10;
-      return { node, score: contains + starts + Math.min(9, node.type === "entry_point" ? 0 : node.type === "file" ? 1 : 2) };
-    })
-    .filter((item) => item.score < 10)
-    .sort((a, b) => a.score - b.score || b.node.connectionCount - a.node.connectionCount)
-    .slice(0, 6)
-    .map((item) => item.node);
+      return risk === "critical" || risk === "high" || risk === "medium" || risk === "blocked_insufficient_evidence";
+    }).length
+  };
 }
 
-function tokenValue(tokens: string[], key: string): string | undefined {
-  return tokens.find((token) => token.startsWith(`${key}:`))?.slice(key.length + 1);
-}
-
-function relationshipsForLayout(layoutMode: GraphLayoutMode): string[] {
-  if (layoutMode === "call_tree") return ["calls"];
-  if (layoutMode === "dependency") return ["imports", "extends", "depends_on"];
-  return [];
-}
-
-function layoutCoordinates(nodes: D3Node[], links: D3Link[], mode: GraphLayoutMode, selectedId: string | undefined, width: number, height: number) {
-  const hints = new Map<string, { x: number; y: number }>();
-  if (mode === "force") return hints;
-  const centerId = selectedId ?? nodes[0]?.id;
-  const adjacency = new Map<string, Set<string>>();
-  for (const node of nodes) adjacency.set(node.id, new Set());
-  for (const link of links) {
-    const source = endpointId(link.source);
-    const target = endpointId(link.target);
-    adjacency.get(source)?.add(target);
-    adjacency.get(target)?.add(source);
-  }
-  const levels = new Map<string, number>();
-  if (centerId) {
-    levels.set(centerId, 0);
-    const queue = [centerId];
-    for (const id of queue) {
-      const nextLevel = (levels.get(id) ?? 0) + 1;
-      for (const next of adjacency.get(id) ?? []) {
-        if (levels.has(next)) continue;
-        levels.set(next, nextLevel);
-        queue.push(next);
-      }
-    }
-  }
-  const moduleNames = [...new Set(nodes.map((node) => (node.path ?? node.type).split("/")[0] || node.type))];
-  const moduleIndex = new Map(moduleNames.map((name, index) => [name, index]));
-  for (const [index, node] of nodes.entries()) {
-    const level = levels.get(node.id) ?? Math.min(4, index % 5);
-    const moduleName = (node.path ?? node.type).split("/")[0] || node.type;
-    const cluster = moduleIndex.get(moduleName) ?? 0;
-    if (mode === "call_tree" || mode === "dependency" || mode === "impact") {
-      hints.set(node.id, { x: 90 + level * Math.max(120, width / 5), y: 90 + (index % Math.max(1, Math.ceil(nodes.length / 4))) * 74 });
-    } else {
-      const angle = (cluster / Math.max(1, moduleNames.length)) * Math.PI * 2;
-      hints.set(node.id, { x: width / 2 + Math.cos(angle) * width * 0.24, y: height / 2 + Math.sin(angle) * height * 0.24 });
-    }
-  }
-  return hints;
-}
-
-function calculateImpact(nodeId: string, graph: GraphView | undefined, edges: GraphEdge[]) {
-  if (!graph) return { direct: 0, transitive: 0, confidence: 0 };
-  const direct = new Set<string>();
-  const transitive = new Set<string>();
-  const exactEdges = edges.filter((edge) => edge.confidence === "exact").length;
-  for (const edge of edges) {
-    if (edge.source === nodeId) direct.add(edge.target);
-    if (edge.target === nodeId) direct.add(edge.source);
-  }
-  for (const edge of edges) {
-    if (direct.has(edge.source) && edge.target !== nodeId) transitive.add(edge.target);
-    if (direct.has(edge.target) && edge.source !== nodeId) transitive.add(edge.source);
-  }
-  direct.forEach((id) => transitive.delete(id));
-  return { direct: direct.size, transitive: transitive.size, confidence: edges.length ? Math.round((exactEdges / edges.length) * 100) : 0 };
+function impactCopy(node: GraphNode, graph: GraphView | undefined, edges: GraphEdge[]) {
+  const direct = edges.filter((edge) => edge.source === node.id || edge.target === node.id).length;
+  const transitive = graph ? new Set(edges.flatMap((edge) => [edge.source, edge.target])).size - 1 : 0;
+  return `Changing this node has ${direct} direct graph relationships and ${Math.max(0, transitive)} visible transitive neighbors in the current view. Use impact mode for evidence-backed checks before execution.`;
 }
 
 function mergePathIntoGraph(graph: GraphView, path: GraphPath): GraphView {
   const nodes = uniqueNodes([...graph.nodes, ...path.nodes]);
-  const edgeIds = new Set<string>();
-  const edges: GraphEdge[] = [];
-  for (const edge of [...graph.edges, ...path.edges]) {
-    if (edgeIds.has(edge.id)) continue;
-    edgeIds.add(edge.id);
-    edges.push(edge);
+  const edgesById = new Map<string, GraphEdge>();
+  for (const edge of [...graph.edges, ...path.edges]) edgesById.set(edge.id, edge);
+  return { ...graph, nodes, edges: [...edgesById.values()] };
+}
+
+function uniqueNodes(nodes: GraphNode[]) {
+  const byId = new Map<string, GraphNode>();
+  for (const node of nodes) {
+    if (!isNoiseNode(node)) byId.set(node.id, node);
   }
-  return { ...graph, nodes, edges };
+  return [...byId.values()];
+}
+
+function isNoiseNode(node: GraphNode) {
+  const path = (node.path ?? "").toLowerCase();
+  return /(^|\/)(tests?|docs?|examples?|fixtures?|vendor|node_modules|dist|build|coverage|migrations|\.venv|venv)(\/|$)/.test(path)
+    || /(^|\/)(test_.*\.py|.*_test\.py|.*\.(spec|test)\.(ts|tsx|js|jsx)|conftest\.py)$/.test(path);
+}
+
+function subsystemFor(node: GraphNode) {
+  const path = node.path ?? node.name;
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length >= 2 && ["src", "app", "backend", "frontend"].includes(parts[0])) return parts[1];
+  return parts[0] ?? node.type;
+}
+
+function subsystemMap(nodes: GraphNode[]) {
+  const names = [...new Set(nodes.map(subsystemFor))].sort();
+  return new Map(names.map((name, index) => [name, index]));
+}
+
+function subsystemColor(index: number) {
+  return SUBSYSTEM_COLORS[index % SUBSYSTEM_COLORS.length];
+}
+
+function darkenForSeverity(severity: Risk) {
+  if (severity === "critical" || severity === "blocked_insufficient_evidence") return "#2d0a0a";
+  if (severity === "high") return "#2d1a0a";
+  if (severity === "medium") return "#302a08";
+  return "#0d1f2d";
+}
+
+function truncatePath(value: string, max: number) {
+  if (value.length <= max) return value;
+  return `…${value.slice(-(max - 1))}`;
+}
+
+function humanError(error: unknown, fallback: string) {
+  if (!(error instanceof Error)) return fallback;
+  return error.message.replace(/^HelixFactory API is not reachable\. Tried /, "").replace(/\s+/g, " ").trim() || fallback;
+}
+
+function drawMinimap(canvas: HTMLCanvasElement | null, graph: SigmaGraph | undefined) {
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#090b10";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = "#303848";
+  context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+  if (!graph || graph.order === 0) return;
+  const nodes = graph.nodes().map((id) => ({ id, x: graph.getNodeAttribute(id, "x"), y: graph.getNodeAttribute(id, "y"), color: graph.getNodeAttribute(id, "borderColor") }));
+  const xs = nodes.map((node) => node.x);
+  const ys = nodes.map((node) => node.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const scaleX = (value: number) => 8 + ((value - minX) / Math.max(0.0001, maxX - minX)) * (canvas.width - 16);
+  const scaleY = (value: number) => 8 + ((value - minY) / Math.max(0.0001, maxY - minY)) * (canvas.height - 16);
+  context.globalAlpha = 0.45;
+  graph.forEachEdge((_edge, attrs, source, target) => {
+    const sourceNode = nodes.find((node) => node.id === source);
+    const targetNode = nodes.find((node) => node.id === target);
+    if (!sourceNode || !targetNode) return;
+    context.strokeStyle = attrs.color;
+    context.beginPath();
+    context.moveTo(scaleX(sourceNode.x), scaleY(sourceNode.y));
+    context.lineTo(scaleX(targetNode.x), scaleY(targetNode.y));
+    context.stroke();
+  });
+  context.globalAlpha = 1;
+  for (const node of nodes) {
+    context.fillStyle = node.color;
+    context.beginPath();
+    context.arc(scaleX(node.x), scaleY(node.y), 2.2, 0, Math.PI * 2);
+    context.fill();
+  }
 }
 
 function loadSavedViews(): SavedTwinView[] {
@@ -1110,32 +1283,4 @@ function loadAnnotations(): Record<string, string> {
 function persistAnnotations(annotations: Record<string, string>) {
   localStorage.setItem("helixfactory.twin.annotations", JSON.stringify(annotations));
   return annotations;
-}
-
-function summarizeNodes(nodes: GraphNode[]) {
-  const stats = { entryPoints: 0, files: 0, functions: 0, classes: 0, risky: 0 };
-  for (const node of nodes) {
-    if (node.isEntryPoint || node.type === "entry_point") stats.entryPoints += 1;
-    if (node.type === "file") stats.files += 1;
-    if (node.type === "function") stats.functions += 1;
-    if (node.type === "class") stats.classes += 1;
-    if (node.risk && node.risk !== "none") stats.risky += 1;
-  }
-  return stats;
-}
-
-function endpointId(endpoint: string | number | D3Node | undefined): string {
-  if (typeof endpoint === "object" && endpoint && "id" in endpoint) return endpoint.id;
-  return String(endpoint ?? "");
-}
-
-function styleFor(node: Pick<GraphNode, "type">, severity?: Risk) {
-  if (severity === "critical") return { fill: "#2d0a0a", stroke: "#E74C3C", icon: "!" };
-  if (severity === "high") return { fill: "#2d1a0a", stroke: "#F39C12", icon: "!" };
-  if (severity === "medium") return { fill: NODE_STYLE[node.type]?.fill ?? "#151922", stroke: "#F1C40F", icon: "!" };
-  return NODE_STYLE[node.type] ?? NODE_STYLE.function;
-}
-
-function truncate(value: string, max: number) {
-  return value.length <= max ? value : `${value.slice(0, max - 1)}…`;
 }

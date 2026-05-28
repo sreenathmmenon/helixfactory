@@ -34,6 +34,19 @@ export function AuditEvidencePage({ repository }: { repository?: Repository }) {
       {error && <StatusStates status="failed" message={error} />}
       {!pkg && !loading && !error && <StatusStates status="empty" message="No evidence package loaded yet." />}
       {pkg?.records.length === 0 && <StatusStates status="empty" message="No audit records match the selected filters." />}
+      {pkg && (
+        <div className="hf-panel hf-result-panel hf-audit-summary">
+          <div className="hf-panel-header">
+            <FileSearch size={18} />
+            <h2 className="hf-panel-title">Evidence package status</h2>
+            <span className="hf-panel-meta">{pkg.completenessStatus.replace("_", " ")}</span>
+          </div>
+          <div className="hf-evidence-grid">
+            <div><span>Chain</span><strong>{pkg.chronologicalChain.join(" -> ") || "none"}</strong></div>
+            <div><span>Missing</span><strong>{pkg.missingActions.join(", ") || "none"}</strong></div>
+          </div>
+        </div>
+      )}
       {(pkg?.records.length ?? 0) > 0 && (
         <div className="hf-record-list hf-timeline">
           {(pkg?.records ?? []).map((record) => (

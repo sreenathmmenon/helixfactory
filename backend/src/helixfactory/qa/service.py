@@ -82,22 +82,49 @@ class ArchitectureQAService:
 
 def _best_evidence_node(graph, question: str) -> str | None:
     words = [word.strip(".,?!:;()[]{}").lower() for word in question.split()]
-    meaningful = [word for word in words if len(word) >= 3 and word not in {"what", "does", "this", "would", "break", "changed", "change", "why", "the"}]
-    candidates: list[tuple[int, str]] = []
+    raw_meaningful = [word for word in words if len(word) >= 3 and word not in {"what", "does", "this", "would", "break", "changed", "change", "why", "the", "handle", "handles"}]
+    meaningful = _expand_terms(raw_meaningful)
+    if not meaningful:
+        return None
+    candidates: list[tuple[int, int, int, str]] = []
     for node_id, data in graph.nodes(data=True):
         if not data.get("path") or not data.get("start_line"):
             continue
+        if _is_noise_path(str(data.get("path") or "")):
+            continue
         name = str(data.get("name", "")).lower()
         path = str(data.get("path", "")).lower()
-        score = sum(3 for word in meaningful if word == name) + sum(1 for word in meaningful if word in path or word in name)
+        basename = path.rsplit("/", 1)[-1].split(".", 1)[0]
+        node_type = str(data.get("type", ""))
+        score = sum(6 for word in meaningful if word == name or word == basename)
+        score += sum(2 for word in meaningful if word in path or word in name)
+        module_bonus = 3 if node_type in {"file", "entry_point"} and any(word == basename or word in path for word in meaningful) else 0
+        symbol_bonus = 2 if node_type in {"function", "class"} and any(word == name for word in meaningful) else 0
+        domain_bonus = 8 if "/security/" in path and any(word in {"auth", "security", "oauth", "jwt", "token", "credential", "login", "permission"} for word in meaningful) else 0
         if score:
-            candidates.append((score, node_id))
+            candidates.append((score + module_bonus + symbol_bonus + domain_bonus, module_bonus + domain_bonus, graph.degree(node_id), node_id))
     if candidates:
-        return sorted(candidates, reverse=True)[0][1]
-    for node_id, data in graph.nodes(data=True):
-        if data.get("path") and data.get("start_line"):
-            return node_id
+        return sorted(candidates, reverse=True)[0][3]
     return None
+
+
+def _is_noise_path(path: str) -> bool:
+    parts = set(path.split("/"))
+    name = path.rsplit("/", 1)[-1]
+    return bool(parts.intersection({"tests", "test", "vendor", "node_modules", "docs", "docs_src", "doc", "examples", "fixtures", "migrations"})) or name.startswith("test_") or name.endswith("_test.py") or name.endswith(".test.ts") or name.endswith(".spec.ts") or name == "conftest.py"
+
+
+def _expand_terms(terms: list[str]) -> list[str]:
+    aliases = {
+        "auth": ["auth", "security", "oauth", "jwt", "token", "credential", "login", "permission"],
+        "authentication": ["auth", "security", "oauth", "jwt", "token", "credential", "login", "permission"],
+        "authorization": ["auth", "security", "scope", "permission", "token"],
+        "routing": ["routing", "route", "router", "endpoint"],
+    }
+    expanded: list[str] = []
+    for term in terms:
+        expanded.extend(aliases.get(term, [term]))
+    return list(dict.fromkeys(expanded))
 
 
 def _evidence_packet(graph, center: str, citations: list[Citation]) -> dict:

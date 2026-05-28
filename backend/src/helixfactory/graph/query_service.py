@@ -25,7 +25,11 @@ class GraphQueryService:
             return GraphView(center=request.center, nodes=[], edges=[], depth=request.depth, risk_summary={})
         sub = centered_subgraph(graph, center_id, request.depth, request.relationship_types)
         center = GraphCenter(type="node", value=center_id)
-        nodes = [self._graph_node(node_id, data, graph) for node_id, data in sub.nodes(data=True) if not self._is_noise(data)]
+        nodes = [
+            self._graph_node(node_id, data, graph)
+            for node_id, data in sub.nodes(data=True)
+            if not self._is_noise(data) and (data.get("type") != "repository" or node_id == center_id)
+        ]
         node_ids = {node.id for node in nodes}
         edges = self._graph_edges(sub, node_ids)
         risks: dict[str, int] = {}
@@ -53,15 +57,18 @@ class GraphQueryService:
             center_id = first_matching_node(graph, match.group(1))
             return self.query(GraphQueryRequest(repository_id=request.repository_id, center=GraphCenter(type="node", value=center_id or match.group(1)), depth=1))
         else:
-            terms = [term for term in re.findall(r"[a-zA-Z_][\\w_]+", question) if len(term) > 2 and term not in {"what", "how", "does", "handle", "handles", "work", "feature", "are", "the"}]
+            terms = _expanded_question_terms(question)
             candidates = [
                 node_id for node_id, data in graph.nodes(data=True)
                 if not self._is_noise(data) and any(term in f"{data.get('name', '')} {data.get('path', '')}".lower() for term in terms)
             ]
         if not candidates:
-            return self.overview(request.repository_id)
+            return GraphView(center=GraphCenter(type="query", value=request.question), nodes=[], edges=[], depth=1, risk_summary={"insufficient_evidence": 1})
         center_id = sorted(candidates, key=lambda node_id: graph.degree(node_id), reverse=True)[0]
-        return self.query(GraphQueryRequest(repository_id=request.repository_id, center=GraphCenter(type="node", value=center_id), depth=2))
+        return self._limit_view(
+            self.query(GraphQueryRequest(repository_id=request.repository_id, center=GraphCenter(type="node", value=center_id), depth=2)),
+            max_nodes=20,
+        )
 
     def node_summary(self, request: NodeSummaryRequest) -> NodeSummaryResponse:
         cache_key = (request.repository_id, request.node_id)
@@ -278,6 +285,21 @@ class GraphQueryService:
         ]
         return sorted(nodes, key=lambda node: node.connection_count, reverse=True)
 
+    @staticmethod
+    def _limit_view(view: GraphView, max_nodes: int) -> GraphView:
+        nodes = sorted(
+            view.nodes,
+            key=lambda node: (node.id != view.center.value, -node.connection_count, node.name.lower()),
+        )[:max_nodes]
+        node_ids = {node.id for node in nodes}
+        return GraphView(
+            center=view.center,
+            nodes=nodes,
+            edges=[edge for edge in view.edges if edge.source in node_ids and edge.target in node_ids],
+            depth=view.depth,
+            risk_summary=view.risk_summary,
+        )
+
     def _graph_node(self, node_id: str, data: dict, graph) -> GraphNode:
         return GraphNode(
             id=node_id,
@@ -322,4 +344,21 @@ class GraphQueryService:
         path = str(data.get("path") or "")
         parts = set(path.split("/"))
         name = path.rsplit("/", 1)[-1]
-        return bool(parts.intersection({"tests", "test", "vendor", "node_modules", "docs", "doc", "examples", "fixtures", "migrations"})) or name.startswith("test_") or name.endswith("_test.py") or name.endswith(".test.ts") or name.endswith(".spec.ts") or name == "conftest.py"
+        return bool(parts.intersection({"tests", "test", "vendor", "node_modules", "docs", "docs_src", "doc", "examples", "fixtures", "migrations"})) or name.startswith("test_") or name.endswith("_test.py") or name.endswith(".test.ts") or name.endswith(".spec.ts") or name == "conftest.py"
+
+
+def _expanded_question_terms(question: str) -> list[str]:
+    stop = {"what", "how", "does", "handle", "handles", "work", "feature", "are", "the", "and", "for", "with", "that", "this"}
+    terms = [term for term in re.findall(r"[a-zA-Z_][\w_]+", question.lower()) if len(term) > 2 and term not in stop]
+    aliases = {
+        "auth": ["auth", "security", "oauth", "jwt", "token", "credential", "login", "permission"],
+        "authentication": ["auth", "security", "oauth", "jwt", "token", "credential", "login", "permission"],
+        "authorization": ["auth", "security", "scope", "permission", "token"],
+        "routing": ["route", "router", "routing", "endpoint", "api_route"],
+        "startup": ["startup", "lifespan", "app", "main", "asgi"],
+        "database": ["database", "db", "sql", "session", "migration", "model"],
+    }
+    expanded: list[str] = []
+    for term in terms:
+        expanded.extend(aliases.get(term, [term]))
+    return list(dict.fromkeys(expanded))

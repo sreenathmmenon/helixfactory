@@ -73,18 +73,20 @@ def _edge_priority(graph: nx.MultiDiGraph, center: str, edge: tuple[str, str, st
 
 def first_matching_node(graph: nx.MultiDiGraph, query: str) -> str | None:
     needle = query.lower()
+    if not needle.strip():
+        return None
     for node_id, data in graph.nodes(data=True):
         if _is_noise_node(data):
             continue
         if needle in str(data.get("name", "")).lower() or needle in str(data.get("path", "")).lower():
             return node_id
-    return next((node_id for node_id, data in graph.nodes(data=True) if not _is_noise_node(data)), None)
+    return None
 
 
 def _is_noise_node(data: dict) -> bool:
     path = str(data.get("path") or "")
     parts = set(path.split("/"))
-    if parts.intersection({"tests", "test", "vendor", "node_modules", "docs", "doc", "examples", "fixtures", "migrations"}):
+    if parts.intersection({"tests", "test", "vendor", "node_modules", "docs", "docs_src", "doc", "examples", "fixtures", "migrations"}):
         return True
     name = path.rsplit("/", 1)[-1]
     return name.startswith("test_") or name.endswith("_test.py") or name.endswith(".test.ts") or name.endswith(".spec.ts") or name == "conftest.py"

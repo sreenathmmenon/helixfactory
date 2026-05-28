@@ -7,6 +7,7 @@ import { StatusStates } from "../components/StatusStates";
 
 export function ExecutionPage({ repository }: { repository?: Repository }) {
   const [summary, setSummary] = useState("Low-risk documentation update");
+  const [testEvidence, setTestEvidence] = useState("");
   const [execution, setExecution] = useState<AgentExecution>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
@@ -20,7 +21,7 @@ export function ExecutionPage({ repository }: { repository?: Repository }) {
     setError(undefined);
     setExecution(undefined);
     try {
-      setExecution(await api.submitExecution(repository.id, summary.trim()));
+      setExecution(await api.submitExecution(repository.id, summary.trim(), testEvidence.trim() || undefined));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Execution failed");
     } finally {
@@ -37,6 +38,10 @@ export function ExecutionPage({ repository }: { repository?: Repository }) {
           <label className="hf-field">
             <span>Ticket summary</span>
             <textarea className="hf-input" aria-label="Ticket summary" value={summary} onChange={(event) => setSummary(event.target.value)} />
+          </label>
+          <label className="hf-field">
+            <span>Test evidence</span>
+            <input className="hf-input" aria-label="Test evidence" value={testEvidence} onChange={(event) => setTestEvidence(event.target.value)} placeholder="pytest backend/tests, CI run URL, or reviewer-approved test plan" />
           </label>
           <button className="tool-button tool-button-primary" onClick={submit} disabled={!repository || loading || !summary.trim()} type="button"><Activity size={16} /> Submit execution</button>
           {!repository && <StatusStates status="empty" message="Ingest a repository before submitting governed execution." />}
