@@ -13,11 +13,12 @@ executions: dict[str, AgentExecution] = {}
 class ExecutionRequest(BaseModel):
     repositoryId: str
     summary: str
+    testEvidence: str | None = None
 
 
 @router.post("/executions", response_model=AgentExecution)
 def submit_execution(request: ExecutionRequest) -> AgentExecution:
-    execution = service.submit(request.repositoryId, request.summary)
+    execution = service.submit(request.repositoryId, request.summary, request.testEvidence)
     executions[execution.id] = execution
     return execution
 

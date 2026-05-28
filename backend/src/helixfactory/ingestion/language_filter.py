@@ -18,6 +18,7 @@ EXCLUDED_DIRS = {
     "__pycache__",
     ".git",
     "docs",
+    "docs_src",
     "doc",
     "examples",
     "migrations",

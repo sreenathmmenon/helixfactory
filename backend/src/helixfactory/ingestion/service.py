@@ -39,7 +39,7 @@ class IngestionService:
     def ingest(self, url: str, branch: str | None = None, label: str | None = None) -> Repository:
         repo_id = repository_id_for(url)
         repo = Repository(id=repo_id, url=url, default_branch=branch or "default", ingestion_status=RepositoryStatus.in_progress, supported_languages=[])
-        self.state.repositories[repo_id] = repo
+        self.state.save_repository(repo)
         result = "success"
         details = None
         try:
@@ -89,7 +89,7 @@ class IngestionService:
             failure_reason = _ingestion_failure_message(exc)
             details = {"reason": failure_reason, "technicalError": exc.__class__.__name__}
             repo = repo.model_copy(update={"ingestion_status": RepositoryStatus.failed, "failure_reason": failure_reason})
-        self.state.repositories[repo_id] = repo
+        self.state.save_repository(repo)
         record = AuditRecord(
             id=f"audit-{repo_id}-ingestion",
             action_type="ingestion",

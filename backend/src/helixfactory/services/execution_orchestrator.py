@@ -16,16 +16,22 @@ class ExecutionOrchestrator:
         self.state = state
         self.collector = ContextCollector(state)
 
-    def submit(self, repository_id: str, summary: str) -> AgentExecution:
+    def submit(self, repository_id: str, summary: str, test_evidence: str | None = None) -> AgentExecution:
         execution_id = f"exec-{uuid4().hex[:10]}"
         context_refs = self.collector.collect(repository_id, summary)
         compliance_gate = regulated_data_gate(execution_id, summary)
-        if compliance_gate:
+        if not context_refs:
+            status = "blocked"
+            failure = "No cited twin context matched this execution request. Refine the summary or select a node before execution."
+        elif compliance_gate:
             status = "blocked"
             failure = compliance_gate.reason
         elif "high risk" in summary.lower() or "critical" in summary.lower():
             status = "blocked"
             failure = "High-risk execution requires human approval"
+        elif not test_evidence:
+            status = "blocked"
+            failure = "Execution requires explicit test evidence before completion."
         else:
             status = "completed"
             failure = None
@@ -35,7 +41,7 @@ class ExecutionOrchestrator:
             proposed_change_id=f"change-{execution_id}",
             status=status,  # type: ignore[arg-type]
             context_refs=context_refs,
-            test_evidence="Context, pre-mortem placeholder, blast radius placeholder, security placeholder, and review placeholder completed" if status == "completed" else None,
+            test_evidence=test_evidence if status == "completed" else None,
             pull_request_ref=f"pr-ready-{execution_id}" if status == "completed" else None,
             failure_reason=failure,
         )
