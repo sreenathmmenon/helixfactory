@@ -30,10 +30,12 @@ class PreMortemEngine:
         gaps: list[str] = []
         for target in targets:
             try:
-                data = graph.nodes[target]
-                chain = _dependency_chain(graph, target)
+                evidence_target = _evidence_target(graph, target)
+                data = graph.nodes[evidence_target]
+                chain = _dependency_chain(graph, evidence_target)
                 if data.get("path") and data.get("start_line") and chain:
-                    severity = _severity_for_change(request.change_type, len(chain))
+                    risk_weight = max(len(chain), graph.degree(target), graph.degree(evidence_target))
+                    severity = _severity_for_change(request.change_type, risk_weight)
                     findings.append(
                         PreMortemFinding(
                             id=f"finding-{uuid4().hex[:10]}",
@@ -102,9 +104,46 @@ def _max_risk(severities: list[str]) -> str:
 
 
 def _dependency_chain(graph, target: str) -> list[str]:
-    edge_ids = [edge_data.get("id") for _, _, edge_data in graph.in_edges(target, data=True)]
-    edge_ids += [edge_data.get("id") for _, _, edge_data in graph.out_edges(target, data=True)]
-    return [edge for edge in edge_ids if edge]
+    """Return human-readable node names forming the dependency chain, not edge IDs."""
+    names: list[str] = []
+    seen: set[str] = {target}
+    # Outgoing edges first (what this node depends on)
+    for _, neighbor, _ in graph.out_edges(target, data=True):
+        if neighbor not in seen:
+            name = graph.nodes[neighbor].get("name") or graph.nodes[neighbor].get("path") or neighbor
+            names.append(name)
+            seen.add(neighbor)
+    # Incoming edges (what depends on this node)
+    for neighbor, _, _ in graph.in_edges(target, data=True):
+        if neighbor not in seen:
+            name = graph.nodes[neighbor].get("name") or graph.nodes[neighbor].get("path") or neighbor
+            names.append(name)
+            seen.add(neighbor)
+    # Put the target node name first
+    target_name = graph.nodes[target].get("name") or graph.nodes[target].get("path") or target
+    return [target_name] + names[:7]
+
+
+def _evidence_target(graph, target: str) -> str:
+    """Prefer symbol-level evidence when a user targets a whole file."""
+    data = graph.nodes[target]
+    if data.get("type") not in {"file", "entry_point"}:
+        return target
+    symbol_neighbors: list[str] = []
+    for _source, neighbor, edge_data in graph.out_edges(target, data=True):
+        neighbor_data = graph.nodes[neighbor]
+        if edge_data.get("type") == "depends_on" and neighbor_data.get("type") in {"function", "class", "entry_point"}:
+            symbol_neighbors.append(neighbor)
+    if not symbol_neighbors:
+        return target
+    return sorted(
+        symbol_neighbors,
+        key=lambda node_id: (
+            graph.degree(node_id),
+            -int(graph.nodes[node_id].get("start_line") or 0),
+        ),
+        reverse=True,
+    )[0]
 
 
 def _severity_for_change(change_type: str, chain_length: int) -> str:

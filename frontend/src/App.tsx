@@ -18,14 +18,43 @@ import { HistoryPage } from "./pages/HistoryPage";
 
 type Tab = "home" | "ingest" | "graph" | "premortem" | "execution" | "qa" | "review" | "security" | "audit" | "history" | "memory" | "skills";
 
+const REPO_KEY = "helixfactory.last-repository";
+
+function saveRepo(repo: Repository) {
+  try { localStorage.setItem(REPO_KEY, JSON.stringify(repo)); } catch { /* ignore */ }
+}
+function loadRepo(): Repository | undefined {
+  try {
+    const raw = localStorage.getItem(REPO_KEY);
+    return raw ? JSON.parse(raw) as Repository : undefined;
+  } catch { return undefined; }
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("home");
-  const [repository, setRepository] = useState<Repository>();
+  const [repository, setRepository] = useState<Repository | undefined>(loadRepo);
   const [aiStatus, setAiStatus] = useState<AIStatus>();
   const [target, setTarget] = useState("");
   const [premortem, setPremortem] = useState<PreMortemResult>();
   const [premortemLoading, setPremortemLoading] = useState(false);
   const [premortemError, setPremortemError] = useState<string>();
+
+  // Verify the cached repo still exists on the backend; clear if not
+  useEffect(() => {
+    const cached = loadRepo();
+    if (!cached) return;
+    let active = true;
+    api.getRepository(cached.id)
+      .then(repo => { if (active) { setRepository(repo); saveRepo(repo); } })
+      .catch(() => {
+        if (active) {
+          setRepository(undefined);
+          try { localStorage.removeItem(REPO_KEY); } catch { /* ignore */ }
+        }
+      });
+    return () => { active = false; };
+  }, []);
+
   useEffect(() => {
     let active = true;
     api.aiStatus()
@@ -49,7 +78,7 @@ export default function App() {
   const tabs: Array<[Tab, JSX.Element, string, string]> = [
     ["home", <Home size={16} />, "Home", "Enterprise AI SDLC command center"],
     ["ingest", <GitBranch size={16} />, "Ingest", "Build the repository twin"],
-    ["graph", <Network size={16} />, "Twin", "Explore code structure"],
+    ["graph", <Network size={16} />, "Twin", "Explore code twin graph"],
     ["premortem", <ShieldCheck size={16} />, "Pre-mortem", "Block risky changes early"],
     ["execution", <Activity size={16} />, "Execution", "Govern agent work"],
     ["qa", <Brain size={16} />, "Q&A", "Ask with cited evidence"],
@@ -77,7 +106,15 @@ export default function App() {
             </div>
           </div>
           <div className="hf-top-status">
-            <span>{repository ? "Twin active" : "No repository"}</span>
+            {repository ? (
+              <>
+                <span className="hf-top-repo-dot" />
+                <span title={repository.url}>{repository.url.split("/").slice(-2).join("/")}</span>
+                <span className="hf-top-divider" />
+              </>
+            ) : (
+              <span className="hf-top-no-repo">No twin active</span>
+            )}
             <strong>{aiStatus?.enabled ? `${aiStatus.provider} AI` : "Local mode"}</strong>
           </div>
         </div>
@@ -87,15 +124,17 @@ export default function App() {
         <aside className="hf-side-nav">
           <nav aria-label="Primary">
             {primaryTabs.map((tabKey) => tabMap.get(tabKey)!).map(([key, icon, label, description]) => (
-              <button aria-label={`${label} ${description}`} className={`hf-nav-item ${tab === key ? "active" : ""}`} key={key} onClick={() => setTab(key)} title={label} type="button">
+              <button aria-label={`${label} ${description}`} className={`hf-nav-item ${tab === key ? "active" : ""}`} key={key} onClick={() => setTab(key)} title={description} type="button">
                 <span>{icon}</span>
+                <strong>{label}</strong>
               </button>
             ))}
             <details className="hf-nav-group" open>
               <summary title="Operations">Ops</summary>
               {operationTabs.map((tabKey) => tabMap.get(tabKey)!).map(([key, icon, label, description]) => (
-                <button aria-label={`${label} ${description}`} className={`hf-nav-item hf-nav-item-secondary ${tab === key ? "active" : ""}`} key={key} onClick={() => setTab(key)} title={label} type="button">
+                <button aria-label={`${label} ${description}`} className={`hf-nav-item hf-nav-item-secondary ${tab === key ? "active" : ""}`} key={key} onClick={() => setTab(key)} title={description} type="button">
                   <span>{icon}</span>
+                  <strong>{label}</strong>
                 </button>
               ))}
             </details>
@@ -110,7 +149,7 @@ export default function App() {
                 <span>{activeTab[3]}</span>
               </div>
             )}
-            {repository && tab !== "graph" && (
+            {repository && (tab === "ingest" || tab === "premortem") && (
               <aside className="hf-active-repo">
                 <div>
                   <span>Active repository</span>
@@ -120,24 +159,56 @@ export default function App() {
               </aside>
             )}
             {tab === "home" && <HomePage repository={repository} aiStatus={aiStatus} onNavigate={setTab} />}
-            {tab === "ingest" && <IngestionPage onRepository={(repo) => { setRepository(repo); setTab("graph"); }} />}
+            {tab === "ingest" && <IngestionPage onRepository={(repo) => { setRepository(repo); saveRepo(repo); setTab("graph"); }} onNavigate={(t) => setTab(t as Tab)} />}
             {tab === "graph" && <BlastRadiusPage repository={repository} preMortem={premortem} />}
             {tab === "premortem" && (
-              <section className="hf-page">
-                <div className={`hf-page-grid ${premortem ? "" : "hf-page-grid-single"}`}>
+              <section className="hf-page hf-premortem-page hf-ops-page">
+                <div className="hf-premortem-layout">
                   <div className="hf-panel hf-command-panel">
-                    <span className="hf-section-kicker">Risk target</span>
-                    <h3>Run a pre-mortem before implementation</h3>
+                    <span className="hf-section-kicker">Evidence-backed risk analysis</span>
+                    <h3>Pre-mortem: what will break?</h3>
+                    <p className="hf-muted" style={{ fontSize: "0.86rem" }}>
+                      Enter a file path, function name, or module. HelixFactory traces the dependency chain and returns evidence-backed findings with file, line, owner, and preventive check.
+                    </p>
                     <label className="hf-field">
                       <span>Change target</span>
-                      <input className="hf-input" aria-label="Pre-mortem target" value={target} onChange={(event) => setTarget(event.target.value)} placeholder="e.g. auth middleware, router startup, ingestion parser" />
+                      <input
+                        className="hf-input"
+                        aria-label="Pre-mortem target"
+                        value={target}
+                        onChange={(event) => setTarget(event.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && repository && !premortemLoading) void runPremortem(); }}
+                        placeholder="app.py, src/flask/cli.py, helpers.py"
+                      />
                     </label>
-                    <button className="tool-button tool-button-primary" type="button" disabled={!repository || premortemLoading} onClick={runPremortem}>Run pre-mortem</button>
-                    {!repository && <StatusStates status="empty" message="Ingest a repository before running a pre-mortem." />}
-                    {premortemLoading && <StatusStates status="loading" message="Resolving target evidence and dependency chain" />}
+                    <div className="hf-premortem-examples">
+                      <span>Quick examples:</span>
+                      {["app.py", "cli.py", "helpers.py"].map(ex => (
+                        <button key={ex} type="button" className="hf-ingest-example-btn" onClick={() => setTarget(ex)}>{ex}</button>
+                      ))}
+                    </div>
+                    <button className="tool-button tool-button-primary" type="button" disabled={!repository || premortemLoading || !target.trim()} onClick={runPremortem}>
+                      <ShieldCheck size={15} /> Run pre-mortem
+                    </button>
+                    {!repository && <StatusStates status="empty" message="Ingest a repository to run a pre-mortem." />}
+                    {premortemLoading && <StatusStates status="loading" message="Tracing dependency chain and collecting evidence…" />}
                     {premortemError && <StatusStates status="failed" message={premortemError} />}
+                    {!premortemLoading && !premortemError && !premortem && repository && (
+                      <div className="hf-premortem-hint">
+                        <p>Every finding cites a real file, line number, and dependency chain. No guesses.</p>
+                      </div>
+                    )}
                   </div>
-                  {premortem && <PreMortemPanel result={premortem} />}
+                  <div className="hf-result-fill">
+                    {!premortem && !premortemLoading && !premortemError && (
+                      <div className="hf-result-placeholder">
+                        <ShieldCheck size={32} strokeWidth={1.2} />
+                        <strong>No pre-mortem run yet</strong>
+                        <p>Enter a change target and run the pre-mortem to see evidence-backed findings — what will break, who owns it, what the dependency chain looks like, and what to check before proceeding.</p>
+                      </div>
+                    )}
+                    {premortem && <PreMortemPanel result={premortem} />}
+                  </div>
                 </div>
               </section>
             )}

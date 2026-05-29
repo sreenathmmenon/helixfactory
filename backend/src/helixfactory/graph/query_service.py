@@ -49,6 +49,7 @@ class GraphQueryService:
     def ask(self, request: GraphAskRequest) -> GraphView:
         graph = self.state.graph_store.load(request.repository_id)
         question = request.question.lower()
+        terms = _expanded_question_terms(question)
         if "entry point" in question or "start" in question:
             candidates = [node_id for node_id, data in graph.nodes(data=True) if self._is_entry(data)]
         elif "critical" in question or "most connected" in question or "overview" in question:
@@ -57,14 +58,22 @@ class GraphQueryService:
             center_id = first_matching_node(graph, match.group(1))
             return self.query(GraphQueryRequest(repository_id=request.repository_id, center=GraphCenter(type="node", value=center_id or match.group(1)), depth=1))
         else:
-            terms = _expanded_question_terms(question)
-            candidates = [
-                node_id for node_id, data in graph.nodes(data=True)
-                if not self._is_noise(data) and any(term in f"{data.get('name', '')} {data.get('path', '')}".lower() for term in terms)
+            scored = [
+                (node_id, _question_match_score(graph, node_id, data, terms, question))
+                for node_id, data in graph.nodes(data=True)
+                if not self._is_noise(data)
             ]
+            candidates = [node_id for node_id, score in scored if score > 0]
         if not candidates:
             return GraphView(center=GraphCenter(type="query", value=request.question), nodes=[], edges=[], depth=1, risk_summary={"insufficient_evidence": 1})
-        center_id = sorted(candidates, key=lambda node_id: graph.degree(node_id), reverse=True)[0]
+        center_id = sorted(
+            candidates,
+            key=lambda node_id: (
+                _question_match_score(graph, node_id, graph.nodes[node_id], terms, question),
+                graph.degree(node_id),
+            ),
+            reverse=True,
+        )[0]
         return self._limit_view(
             self.query(GraphQueryRequest(repository_id=request.repository_id, center=GraphCenter(type="node", value=center_id), depth=2)),
             max_nodes=20,
@@ -354,7 +363,9 @@ def _expanded_question_terms(question: str) -> list[str]:
         "auth": ["auth", "security", "oauth", "jwt", "token", "credential", "login", "permission"],
         "authentication": ["auth", "security", "oauth", "jwt", "token", "credential", "login", "permission"],
         "authorization": ["auth", "security", "scope", "permission", "token"],
-        "routing": ["route", "router", "routing", "endpoint", "api_route"],
+        "route": ["route", "routes", "router", "routing", "endpoint", "dispatch", "request", "url_rule", "url_map", "blueprint"],
+        "router": ["route", "routes", "router", "routing", "endpoint", "dispatch", "request", "url_rule", "url_map", "blueprint"],
+        "routing": ["route", "routes", "router", "routing", "endpoint", "dispatch", "request", "url_rule", "url_map", "blueprint"],
         "startup": ["startup", "lifespan", "app", "main", "asgi"],
         "database": ["database", "db", "sql", "session", "migration", "model"],
     }
@@ -362,3 +373,36 @@ def _expanded_question_terms(question: str) -> list[str]:
     for term in terms:
         expanded.extend(aliases.get(term, [term]))
     return list(dict.fromkeys(expanded))
+
+
+def _question_match_score(graph, node_id: str, data: dict, terms: list[str], question: str) -> float:
+    name = str(data.get("name") or "").lower()
+    path = str(data.get("path") or "").lower()
+    node_type = str(data.get("type") or "")
+    haystack = f"{name} {path}"
+    score = 0.0
+    for term in terms:
+        normalized = term.lower()
+        if name == normalized:
+            score += 40
+        elif name.startswith(normalized):
+            score += 26
+        elif normalized in name:
+            score += 18
+        elif normalized in path:
+            score += 8
+    if data.get("metadata", {}).get("is_entry_point") or data.get("type") == "entry_point":
+        score += 6
+    if node_type in {"function", "class"}:
+        score += 4
+    if node_type == "file":
+        score += 2
+    if "routing" in question or "route" in question or "router" in question:
+        if any(token in haystack for token in ("dispatch", "url_rule", "url_map", "endpoint", "blueprint")):
+            score += 22
+        if "cli" in path and "routes_command" in name:
+            score -= 20
+    if "auth" in question or "authentication" in question or "authorization" in question:
+        if any(token in haystack for token in ("auth", "login", "token", "credential", "permission", "security")):
+            score += 18
+    return score + min(12, graph.degree(node_id) * 0.35)

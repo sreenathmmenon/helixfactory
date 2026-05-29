@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock3, FileSearch } from "lucide-react";
+import { CheckCircle2, Clock, FileSearch, GitCommitHorizontal, XCircle } from "lucide-react";
 import { api } from "../services/api";
 import type { EvidencePackage, Repository } from "../services/types";
 import { StatusStates } from "../components/StatusStates";
@@ -8,67 +8,124 @@ export function AuditEvidencePage({ repository }: { repository?: Repository }) {
   const [pkg, setPackage] = useState<EvidencePackage>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+
   async function load() {
-    setLoading(true);
-    setError(undefined);
-    setPackage(undefined);
+    setLoading(true); setError(undefined); setPackage(undefined);
     try {
       setPackage(await api.evidencePackage(repository?.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Evidence package failed");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
+
   return (
-    <section className="hf-page">
-      <div className="hf-panel hf-toolbar-panel">
-        <div>
+    <section className="hf-page hf-ops-page">
+      <div className="hf-page-full">
+        <div className="hf-panel hf-command-panel">
           <span className="hf-section-kicker">Audit evidence</span>
           <h3>Chronological proof chain</h3>
-          <p className="hf-muted">Every platform action is shown as a readable record with inputs, outputs, result, and git commit reference.</p>
+          <p className="hf-muted" style={{ fontSize: "0.84rem" }}>
+            Every platform action — ingestion, pre-mortem, blast radius, execution — is recorded as a structured entry with inputs, outputs, result, and git commit reference.
+          </p>
+          <button
+            className="tool-button tool-button-primary"
+            onClick={() => void load()}
+            disabled={loading}
+            type="button"
+          >
+            <FileSearch size={16} /> Load evidence package
+          </button>
+          {loading && <StatusStates status="loading" message="Loading chronological audit evidence…" />}
+          {error && <StatusStates status="failed" message={error} />}
         </div>
-        <button className="tool-button tool-button-primary" onClick={load} disabled={loading} type="button"><FileSearch size={16} /> Load evidence</button>
+
+        <div className="hf-result-fill">
+          {!pkg && !loading && !error && (
+            <div className="hf-result-placeholder">
+              <FileSearch size={32} strokeWidth={1.2} />
+              <strong>No evidence package loaded</strong>
+              <p>Load the evidence package to see the full chronological proof chain — every platform action with its git commit, inputs, and outputs.</p>
+            </div>
+          )}
+
+          {pkg && (
+            <>
+              {/* Completeness status */}
+              <div className="hf-panel hf-gate-card" style={{
+                borderLeftColor: pkg.completenessStatus === "complete" ? "#52c41a" : "#fadb14",
+                borderLeftWidth: 3
+              }}>
+                <div className="hf-gate-card-header">
+                  <FileSearch size={16} style={{ color: "var(--hf-blue)" }} />
+                  <span className="hf-gate-card-title">Evidence package status</span>
+                  <span className={`hf-exec-status ${pkg.completenessStatus === "complete" ? "completed" : "queued"}`}>
+                    {pkg.completenessStatus.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="hf-evidence-row">
+                  <span>Chain</span>
+                  <strong style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.78rem" }}>
+                    {pkg.chronologicalChain.join(" → ") || "empty"}
+                  </strong>
+                </div>
+                {pkg.missingActions.length > 0 && (
+                  <div className="hf-evidence-row">
+                    <span>Missing</span>
+                    <strong style={{ color: "#fadb14" }}>{pkg.missingActions.join(", ")}</strong>
+                  </div>
+                )}
+                <div className="hf-evidence-row">
+                  <span>Records</span>
+                  <strong>{pkg.records.length} audit record{pkg.records.length !== 1 ? "s" : ""}</strong>
+                </div>
+              </div>
+
+              {/* Timeline */}
+              {pkg.records.length > 0 && (
+                <div style={{ paddingLeft: "0.25rem" }}>
+                  {pkg.records.map(record => {
+                    const isSuccess = record.result === "success";
+                    const isFailed = record.result === "failed" || record.result === "blocked";
+                    return (
+                      <div key={record.id} className="hf-timeline-item">
+                        <div className={`hf-timeline-dot ${record.result}`}>
+                          {isSuccess
+                            ? <CheckCircle2 size={10} style={{ color: "#52c41a" }} />
+                            : isFailed
+                            ? <XCircle size={10} style={{ color: "#ff4d4f" }} />
+                            : <Clock size={10} style={{ color: "#fadb14" }} />
+                          }
+                        </div>
+                        <div className="hf-timeline-card">
+                          <div className="hf-timeline-card-head">
+                            <span className={`hf-exec-status ${isSuccess ? "completed" : isFailed ? "failed" : "queued"}`}>
+                              {record.result}
+                            </span>
+                            <strong>{record.actionType.replace(/_/g, " ")}</strong>
+                            <time>{new Date(record.timestamp).toLocaleString()}</time>
+                          </div>
+                          {record.summary && <p>{record.summary}</p>}
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem", alignItems: "center" }}>
+                            <span className="hf-timeline-commit">
+                              <GitCommitHorizontal size={11} />
+                              {record.gitCommit.slice(0, 12)}
+                            </span>
+                            {record.subjectRef && (
+                              <span style={{ color: "var(--hf-faint)", fontSize: "0.72rem" }}>
+                                {record.subjectRef.slice(0, 20)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-      {loading && <StatusStates status="loading" message="Loading chronological audit evidence" />}
-      {error && <StatusStates status="failed" message={error} />}
-      {!pkg && !loading && !error && <StatusStates status="empty" message="No evidence package loaded yet." />}
-      {pkg?.records.length === 0 && <StatusStates status="empty" message="No audit records match the selected filters." />}
-      {pkg && (
-        <div className="hf-panel hf-result-panel hf-audit-summary">
-          <div className="hf-panel-header">
-            <FileSearch size={18} />
-            <h2 className="hf-panel-title">Evidence package status</h2>
-            <span className="hf-panel-meta">{pkg.completenessStatus.replace("_", " ")}</span>
-          </div>
-          <div className="hf-evidence-grid">
-            <div><span>Chain</span><strong>{pkg.chronologicalChain.join(" -> ") || "none"}</strong></div>
-            <div><span>Missing</span><strong>{pkg.missingActions.join(", ") || "none"}</strong></div>
-          </div>
-        </div>
-      )}
-      {(pkg?.records.length ?? 0) > 0 && (
-        <div className="hf-record-list hf-timeline">
-          {(pkg?.records ?? []).map((record) => (
-            <article className="hf-record" key={record.id}>
-              <div className="hf-record-head">
-                <Clock3 size={16} />
-                <strong>{record.actionType.replace("_", " ")}</strong>
-                <span className="hf-pill">{record.result}</span>
-                <time>{new Date(record.timestamp).toLocaleString()}</time>
-              </div>
-              <p>{record.summary || `Action for ${record.subjectRef}`}</p>
-              <div className="hf-evidence-grid">
-                <div><span>Subject</span><strong>{record.subjectRef}</strong></div>
-                <div><span>Commit</span><strong>{record.gitCommit}</strong></div>
-                <div><span>Inputs</span><strong>{record.inputRefs?.join(", ") || "none"}</strong></div>
-                <div><span>Outputs</span><strong>{record.outputRefs?.join(", ") || "none"}</strong></div>
-              </div>
-              {record.result !== "success" && <StatusStates status={record.result === "blocked" ? "blocked" : "partial"} message={String(record.details?.reason ?? "Action completed with non-success status")} />}
-            </article>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
