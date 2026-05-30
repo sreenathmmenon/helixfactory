@@ -157,8 +157,8 @@ export function IngestionPage({ onRepository, onNavigate }: { onRepository: (rep
                   <button type="button" className="tool-button tool-button-primary hf-ingest-nav-btn" onClick={() => onNavigate?.("graph")}>
                     <Network size={15} /> Explore Twin <ArrowRight size={14} />
                   </button>
-                  <button type="button" className="tool-button hf-ingest-nav-btn" onClick={() => onNavigate?.("premortem")}>
-                    <CheckCircle2 size={15} /> Run pre-mortem
+                  <button type="button" className="tool-button hf-ingest-nav-btn" onClick={() => onNavigate?.("impact")}>
+                    <CheckCircle2 size={15} /> Assess impact
                   </button>
                 </div>
               </div>

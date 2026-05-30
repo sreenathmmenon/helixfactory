@@ -1408,7 +1408,8 @@ textarea.hf-input {
   min-height: calc(100vh - 5.2rem);
 }
 
-.hf-main-graph .hf-workbench {
+.hf-main-graph .hf-workbench,
+.hf-main-impact .hf-workbench {
   height: calc(100vh - 5.2rem);
   min-height: 42rem;
 }
@@ -1494,6 +1495,36 @@ textarea.hf-input {
   border: 1px solid rgba(61, 70, 87, 0.86);
   border-radius: var(--hf-radius-sm);
   background: rgba(10, 14, 21, 0.62);
+}
+
+.hf-d3-primary-intent {
+  border-color: rgba(120, 169, 255, 0.28);
+  background:
+    linear-gradient(180deg, rgba(18, 24, 34, 0.88), rgba(10, 14, 21, 0.72));
+}
+
+.hf-d3-page.intent-impact .hf-d3-impact-planner {
+  order: 1;
+}
+
+.hf-d3-page.intent-impact .hf-d3-ask-intent {
+  order: 2;
+}
+
+.hf-d3-page.intent-impact .hf-d3-entry-intent {
+  order: 3;
+}
+
+.hf-d3-page.intent-impact .hf-d3-advanced-tools {
+  order: 4;
+}
+
+.hf-d3-impact-planner {
+  border-color: rgba(241, 194, 27, 0.28);
+}
+
+.hf-d3-advanced-tools {
+  background: rgba(8, 12, 18, 0.48);
 }
 
 .hf-d3-disclosure summary {

@@ -1,7 +1,7 @@
 import { Activity, AlertTriangle, Brain, ChevronRight, DatabaseZap, FileSearch, GitBranch, Network, ShieldCheck } from "lucide-react";
 import type { AIStatus, Repository } from "../services/types";
 
-type HomeTab = "ingest" | "graph" | "premortem" | "execution" | "qa" | "review" | "security" | "audit" | "history" | "memory" | "skills";
+type HomeTab = "ingest" | "graph" | "impact" | "premortem" | "execution" | "qa" | "review" | "security" | "audit" | "history" | "memory" | "skills";
 
 interface HomePageProps {
   repository?: Repository;
@@ -29,7 +29,7 @@ const CAPABILITIES = [
     color: "blue",
     title: "Trace impact",
     desc: "Show direct and transitive blast radius with evidence paths.",
-    tab: "graph" as HomeTab
+    tab: "impact" as HomeTab
   },
   {
     icon: FileSearch,
@@ -93,7 +93,7 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
           <button
             className="tool-button tool-button-primary"
             type="button"
-            onClick={() => onNavigate(hasRepo ? "premortem" : "ingest")}
+            onClick={() => onNavigate(hasRepo ? "impact" : "ingest")}
           >
             {hasRepo ? <ShieldCheck size={16} /> : <GitBranch size={16} />}
             {hasRepo ? "Analyze a risky change" : "Build the code twin"}
@@ -164,9 +164,9 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
             <button
               className="tool-button"
               type="button"
-              onClick={() => onNavigate("premortem")}
+              onClick={() => onNavigate("impact")}
             >
-              <ShieldCheck size={15} /> Run pre-mortem
+              <ShieldCheck size={15} /> Assess impact
             </button>
           </div>
         ) : (

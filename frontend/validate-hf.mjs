@@ -57,9 +57,9 @@ check('sidebar header "Code Twin"', (await page.locator('.hf-d3-sidebar h2').tex
 check('sidebar shows flask', (await page.locator('.hf-twin-repo-name').textContent()).includes('flask'));
 check('mode badge present', (await page.locator('.hf-d3-mode').count()) > 0);
 check('default depth 2', (await page.locator('.hf-d3-depth-controls span').textContent()).includes('2'));
-check('6 sidebar sections', (await page.locator('.hf-d3-section').count()) === 6);
-check('Architecture overview label', (await page.locator('.hf-d3-section label').allTextContents()).some(l => l.includes('Architecture overview')));
-check('symbol search present', (await page.locator('#twin-symbol-search').count()) > 0);
+check('4 sidebar sections', (await page.locator('.hf-d3-section').count()) === 4);
+check('three primary intents visible', (await page.locator('.hf-d3-primary-intent').count()) === 3);
+check('Advanced tools collapsed', !(await page.locator('#twin-symbol-search').isVisible()));
 check('canvas min-height > 400', ((await page.locator('.hf-d3-canvas').boundingBox())?.height ?? 0) > 400);
 check('legend hidden (no graph)', !(await page.locator('.hf-d3-legend').isVisible()));
 check('minimap hidden (no graph)', !(await page.locator('.hf-sigma-minimap').isVisible()));
@@ -84,19 +84,12 @@ check('search results appear', searchCount > 0);
 await page.fill('#twin-symbol-search', '');
 
 // collapsibles
-check('2 collapsible sections', (await page.locator('.hf-d3-disclosure').count()) === 2);
+check('1 advanced section', (await page.locator('.hf-d3-disclosure').count()) === 1);
 
-// open filters
-await page.locator('.hf-d3-disclosure summary').first().click();
-await page.waitForTimeout(300);
 check('6 mode buttons', (await page.locator('.hf-d3-mode-grid button').count()) === 6);
 check('filter buttons > 5', (await page.locator('.hf-d3-filter-grid button').count()) > 5);
-
-// open impact
-await page.locator('.hf-d3-disclosure summary').nth(1).click();
-await page.waitForTimeout(300);
-check('impact textarea present', (await page.locator('textarea[placeholder*="Describe"]').count()) > 0);
-check('show impact disabled (no text)', await page.locator('button:has-text("Show impact")').isDisabled());
+check('impact textarea present', (await page.locator('textarea[placeholder*="Example"]').count()) > 0);
+check('show impact disabled (no text)', await page.locator('button:has-text("Show what breaks")').isDisabled());
 
 // ── LOAD OVERVIEW GRAPH ───────────────────────────────────
 await page.locator('button:has-text("Load architecture spine")').click();
@@ -188,7 +181,7 @@ check('Esc clears graph', await page.locator('.hf-twin-empty').isVisible());
 // Validate save view works via JS click (button is below fold in headless viewport)
 await page.locator('button:has-text("Load architecture spine")').click();
 await page.waitForTimeout(5000);
-await page.locator('.hf-d3-disclosure summary').nth(1).click();
+await page.locator('.hf-d3-disclosure summary').first().click();
 await page.waitForTimeout(300);
 const saveBtn = page.locator('button:has-text("Save current view")');
 await page.evaluate(el => el.click(), await saveBtn.elementHandle());

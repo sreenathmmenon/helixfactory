@@ -1,8 +1,8 @@
 import { GraphCanvas } from "../graph/GraphCanvas";
 import type { PreMortemResult, Repository } from "../services/types";
 
-export function BlastRadiusPage({ repository, preMortem }: { repository?: Repository; preMortem?: PreMortemResult }) {
+export function BlastRadiusPage({ repository, preMortem, intent = "twin" }: { repository?: Repository; preMortem?: PreMortemResult; intent?: "twin" | "impact" }) {
   return (
-    <GraphCanvas repository={repository} preMortem={preMortem} />
+    <GraphCanvas repository={repository} preMortem={preMortem} intent={intent} />
   );
 }

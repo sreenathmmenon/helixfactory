@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Brain, Clock3, DatabaseZap, FileSearch, GitBranch, Home, LockKeyhole, Network, ShieldCheck, Sparkles, Split } from "lucide-react";
+import { Activity, AlertTriangle, Brain, Clock3, DatabaseZap, FileSearch, GitBranch, Home, LockKeyhole, Network, ShieldCheck, Sparkles, Split } from "lucide-react";
 import { PreMortemPanel } from "./components/PreMortemPanel";
 import { StatusStates } from "./components/StatusStates";
 import { api } from "./services/api";
@@ -16,7 +16,7 @@ import { ReviewPage } from "./pages/ReviewPage";
 import { MemoryPage } from "./pages/MemoryPage";
 import { HistoryPage } from "./pages/HistoryPage";
 
-type Tab = "home" | "ingest" | "graph" | "premortem" | "execution" | "qa" | "review" | "security" | "audit" | "history" | "memory" | "skills";
+type Tab = "home" | "ingest" | "graph" | "impact" | "premortem" | "execution" | "qa" | "review" | "security" | "audit" | "history" | "memory" | "skills";
 
 const REPO_KEY = "helixfactory.last-repository";
 
@@ -79,6 +79,7 @@ export default function App() {
     ["home", <Home size={16} />, "Home", "What HelixFactory does and where to start"],
     ["ingest", <GitBranch size={16} />, "Ingest", "Build the evidence-backed repository twin"],
     ["graph", <Network size={16} />, "Twin", "Understand architecture and inspect impact"],
+    ["impact", <AlertTriangle size={16} />, "Impact", "Show what a planned change can break"],
     ["premortem", <ShieldCheck size={16} />, "Pre-mortem", "Predict what can break before code changes"],
     ["audit", <FileSearch size={16} />, "Audit", "Prove every decision with a chronological evidence trail"],
     ["qa", <Brain size={16} />, "Q&A", "Ask the twin with cited evidence"],
@@ -89,7 +90,7 @@ export default function App() {
     ["memory", <Brain size={16} />, "Memory", "Reuse organizational knowledge"],
     ["skills", <Sparkles size={16} />, "Skills", "Refine operating memory"]
   ];
-  const primaryTabs: Tab[] = ["home", "ingest", "graph", "premortem", "audit"];
+  const primaryTabs: Tab[] = ["home", "ingest", "graph", "impact", "premortem", "audit"];
   const operationTabs: Tab[] = ["qa", "execution", "review", "security", "history", "memory", "skills"];
   const activeTab = tabs.find(([key]) => key === tab) ?? tabs[0];
   const tabMap = new Map(tabs.map((item) => [item[0], item]));
@@ -160,7 +161,8 @@ export default function App() {
             )}
             {tab === "home" && <HomePage repository={repository} aiStatus={aiStatus} onNavigate={setTab} />}
             {tab === "ingest" && <IngestionPage onRepository={(repo) => { setRepository(repo); saveRepo(repo); setTab("graph"); }} onNavigate={(t) => setTab(t as Tab)} />}
-            {tab === "graph" && <BlastRadiusPage repository={repository} preMortem={premortem} />}
+            {tab === "graph" && <BlastRadiusPage repository={repository} preMortem={premortem} intent="twin" />}
+            {tab === "impact" && <BlastRadiusPage repository={repository} preMortem={premortem} intent="impact" />}
             {tab === "premortem" && (
               <section className="hf-page hf-premortem-page hf-ops-page">
                 <div className="hf-premortem-layout">

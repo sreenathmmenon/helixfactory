@@ -41,6 +41,7 @@ import type {
 type GraphCanvasProps = {
   repository?: Repository;
   preMortem?: PreMortemResult;
+  intent?: "twin" | "impact";
 };
 
 type TwinMode = "overview" | "entry" | "search" | "neighborhood" | "impact" | "review" | "memory";
@@ -144,7 +145,7 @@ const NODE_TYPE_DEFS: Array<{ key: string; label: string }> = [
   { key: "class",       label: "Class" }
 ];
 
-export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
+export function GraphCanvas({ repository, preMortem, intent = "twin" }: GraphCanvasProps) {
   const containerRef     = useRef<HTMLDivElement | null>(null);
   const minimapRef       = useRef<HTMLCanvasElement | null>(null);
   const graphologyRef    = useRef<SigmaGraph>();
@@ -173,7 +174,7 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
   const [entryPointsLoading, setEntryPointsLoading] = useState(false);
   const [error,            setError]            = useState<string>();
   const [lastLoader,       setLastLoader]       = useState<(() => Promise<GraphView>) | null>(null);
-  const [mode,             setMode]             = useState<TwinMode>("overview");
+  const [mode,             setMode]             = useState<TwinMode>(intent === "impact" ? "impact" : "overview");
   const [depth,            setDepth]            = useState(2);
   const [centeredLabel,    setCenteredLabel]    = useState("Home");
   const [breadcrumbs,      setBreadcrumbs]      = useState<Array<{ id: string; name: string }>>([]);
@@ -187,8 +188,7 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
   const [annotations,      setAnnotations]      = useState<Record<string, string>>(() => loadAnnotations());
   const [showRelCount,     setShowRelCount]     = useState(12);
   const [copiedSnippet,    setCopiedSnippet]    = useState(false);
-  const [filtersOpen,      setFiltersOpen]      = useState(false);
-  const [impactOpen,       setImpactOpen]       = useState(false);
+  const [advancedOpen,     setAdvancedOpen]     = useState(false);
   const [backendSearchResults, setBackendSearchResults] = useState<GraphNode[]>([]);
   const [backendSearchLoading, setBackendSearchLoading] = useState(false);
 
@@ -251,6 +251,10 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
       if (current === requestSeq.current) setEntryPointsLoading(false);
     });
   }, [repository?.id]);
+
+  useEffect(() => {
+    if (!graph) setMode(intent === "impact" ? "impact" : "overview");
+  }, [intent, graph]);
 
   // Backend search fallback when local results are empty
   useEffect(() => {
@@ -331,7 +335,10 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
       if (e.key === "Escape") clearGraph();
       if (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
         e.preventDefault();
-        (document.getElementById("twin-symbol-search") as HTMLInputElement | null)?.focus();
+        setAdvancedOpen(true);
+        window.setTimeout(() => {
+          (document.getElementById("twin-symbol-search") as HTMLInputElement | null)?.focus();
+        }, 0);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -581,7 +588,7 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
       setCenteredLabel(label);
       setSeverityByNode(nextSeverity);
       setImpactResult(premortem);
-      setImpactOpen(false);
+      setAdvancedOpen(false);
       if (!premortem.findings.length && premortem.evidenceGaps.length) {
         setError(`Impact analysis needs more evidence: ${premortem.evidenceGaps[0]}`);
       }
@@ -693,84 +700,22 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
   const visibleRelGroups = allRelGroups.flatMap(g => g.nodes).length;
 
   return (
-    <section className={`hf-d3-page hf-twin-page ${selected ? "has-selection" : ""}`}>
+    <section className={`hf-d3-page hf-twin-page intent-${intent} ${selected ? "has-selection" : ""}`}>
 
       {/* ── LEFT SIDEBAR ────────────────────────────────────────── */}
       <aside className="hf-d3-sidebar hf-twin-intent" aria-label="Twin controls">
 
-        {/* Header */}
         <div className="hf-d3-sidebar-head">
           <div>
-            <h2>Code Twin</h2>
+            <h2>{intent === "impact" ? "Impact" : "Code Twin"}</h2>
             <span className="hf-twin-repo-name" title={repository?.url ?? ""}>{repoName}</span>
           </div>
           <span className={`hf-d3-mode ${mode}`} title={`Current exploration mode: ${mode}`}>{mode}</span>
         </div>
 
-        {/* Symbol search */}
-        <div className="hf-d3-section hf-d3-quick-search">
-          <label htmlFor="twin-symbol-search">
-            Symbol search
-            <span className="hf-d3-help-tip" title="Type a function, class, or file name. Results appear instantly from loaded nodes.">
-              <Info size={11} />
-            </span>
-          </label>
-          <div>
-            <Search size={13} />
-            <input
-              id="twin-symbol-search"
-              value={quickSearch}
-              onChange={e => setQuickSearch(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); runQuickSearch(); } }}
-              placeholder="auth, router, OAuth2PasswordBearer…"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {quickSearch && (
-              <button
-                type="button"
-                className="hf-d3-clear-search"
-                onClick={() => setQuickSearch("")}
-                aria-label="Clear search"
-              >
-                <X size={11} />
-              </button>
-            )}
-          </div>
-          {quickSearch && quickResults.length === 0 && !backendSearchLoading && backendSearchResults.length === 0 && (
-            <p className="hf-d3-search-empty">No local match — press Enter to ask the twin.</p>
-          )}
-          {quickSearch && quickResults.length === 0 && backendSearchLoading && (
-            <p className="hf-d3-search-loading">Searching full graph…</p>
-          )}
-          {(quickResults.length > 0 || backendSearchResults.length > 0) && (
-            <div className="hf-d3-search-results" role="listbox" aria-label="Search results">
-              {(quickResults.length > 0 ? quickResults : backendSearchResults).slice(0, 6).map(node => (
-                <button
-                  type="button"
-                  key={node.id}
-                  role="option"
-                  aria-selected={selected?.id === node.id}
-                  onClick={() => { centerNode(node); setQuickSearch(""); setBackendSearchResults([]); }}
-                >
-                  <span className="hf-d3-node-icon" style={{ color: styleFor(node).stroke }}>
-                    {styleFor(node).icon}
-                  </span>
-                  <strong>{node.name}</strong>
-                  <small>{node.path ? truncatePath(node.path, 30) : node.type}</small>
-                  {(severityByNode.get(node.id) === "critical" || severityByNode.get(node.id) === "high") && (
-                    <span className="hf-d3-risk-dot" aria-label="Has risk" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Ask the twin */}
-        <form className="hf-d3-section" onSubmit={askQuestion}>
+        <form className="hf-d3-section hf-d3-primary-intent hf-d3-ask-intent" onSubmit={askQuestion}>
           <label>
-            Ask the twin
+            1. Ask what you want to understand
             <span className="hf-d3-help-tip" title="Ask a plain-English question about the codebase architecture.">
               <Info size={11} />
             </span>
@@ -784,7 +729,7 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
                 askQuestion();
               }
             }}
-            placeholder={"e.g. What are the entry points? What handles auth?"}
+            placeholder={"Try: What handles routing? What are the entry points?"}
             rows={2}
           />
           <button
@@ -806,10 +751,9 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
           )}
         </form>
 
-        {/* Entry points */}
-        <section className="hf-d3-section">
-          <label>Entry points</label>
-          <p className="hf-d3-section-hint">Start from execution paths, not filenames.</p>
+        <section className="hf-d3-section hf-d3-primary-intent hf-d3-entry-intent">
+          <label>2. Start from an entry point</label>
+          <p className="hf-d3-section-hint">Trace how execution enters the system.</p>
           <div className="hf-d3-entry-list" role="list">
             {entryPoints.length > 0
               ? entryPoints.map(node => (
@@ -826,40 +770,115 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
           </div>
         </section>
 
-        {/* Architecture overview */}
-        <section className="hf-d3-section">
-          <label>Architecture overview</label>
-          <p className="hf-d3-section-hint">Start with the few nodes that hold the system together.</p>
+        <section className="hf-d3-section hf-d3-primary-intent hf-d3-impact-planner">
+          <label>3. Assess a planned change</label>
+          <p className="hf-d3-section-hint">Describe the change. HelixFactory will show risk, blast radius, and evidence.</p>
+          <textarea
+            value={impactText}
+            onChange={e => setImpactText(e.target.value)}
+            placeholder="Example: Modify Flask request dispatch"
+            rows={3}
+          />
           <button
             type="button"
-            onClick={showOverview}
-            disabled={!repository || loading}
+            disabled={!repository || loading || !impactText.trim()}
+            onClick={showImpact}
             className="hf-d3-primary-btn"
           >
-            <Network size={13} /> Load architecture spine
+            <AlertTriangle size={13} /> Show what breaks
           </button>
-          {overviewNodes.length > 0 && (
-            <div className="hf-d3-god-list" aria-label="Architecture overview nodes">
-              {uniqueNodesByName(uniqueNodes(overviewNodes)).slice(0, 5).map(node => (
-                <button type="button" key={node.id} onClick={() => centerNode(node)} title={node.path ?? node.type}>
-                  <span className="hf-d3-node-icon" style={{ color: styleFor(node).stroke }}>
-                    {styleFor(node).icon}
-                  </span>
-                  <span>{node.name}</span>
-                  <small className="hf-d3-conn-count">{node.connectionCount}</small>
-                </button>
-              ))}
-            </div>
-          )}
         </section>
 
-        {/* Filters — collapsible */}
         <details
-          className="hf-d3-section hf-d3-disclosure"
-          open={filtersOpen}
-          onToggle={e => setFiltersOpen((e.target as HTMLDetailsElement).open)}
+          className="hf-d3-section hf-d3-disclosure hf-d3-advanced-tools"
+          open={advancedOpen}
+          onToggle={e => setAdvancedOpen((e.target as HTMLDetailsElement).open)}
         >
-          <summary>Filters &amp; modes</summary>
+          <summary>Advanced tools</summary>
+
+          <div className="hf-d3-filter-section hf-d3-quick-search">
+            <label htmlFor="twin-symbol-search">
+              Exact symbol search
+              <span className="hf-d3-help-tip" title="Type a function, class, or file name. Results appear instantly from loaded nodes.">
+                <Info size={11} />
+              </span>
+            </label>
+            <div>
+              <Search size={13} />
+              <input
+                id="twin-symbol-search"
+                value={quickSearch}
+                onChange={e => setQuickSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); runQuickSearch(); } }}
+                placeholder="dispatch_request, app.py, auth…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {quickSearch && (
+                <button
+                  type="button"
+                  className="hf-d3-clear-search"
+                  onClick={() => setQuickSearch("")}
+                  aria-label="Clear search"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+            {quickSearch && quickResults.length === 0 && !backendSearchLoading && backendSearchResults.length === 0 && (
+              <p className="hf-d3-search-empty">No local match — press Enter to ask the twin.</p>
+            )}
+            {quickSearch && quickResults.length === 0 && backendSearchLoading && (
+              <p className="hf-d3-search-loading">Searching full graph…</p>
+            )}
+            {(quickResults.length > 0 || backendSearchResults.length > 0) && (
+              <div className="hf-d3-search-results" role="listbox" aria-label="Search results">
+                {(quickResults.length > 0 ? quickResults : backendSearchResults).slice(0, 6).map(node => (
+                  <button
+                    type="button"
+                    key={node.id}
+                    role="option"
+                    aria-selected={selected?.id === node.id}
+                    onClick={() => { centerNode(node); setQuickSearch(""); setBackendSearchResults([]); }}
+                  >
+                    <span className="hf-d3-node-icon" style={{ color: styleFor(node).stroke }}>
+                      {styleFor(node).icon}
+                    </span>
+                    <strong>{node.name}</strong>
+                    <small>{node.path ? truncatePath(node.path, 30) : node.type}</small>
+                    {(severityByNode.get(node.id) === "critical" || severityByNode.get(node.id) === "high") && (
+                      <span className="hf-d3-risk-dot" aria-label="Has risk" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="hf-d3-filter-section">
+            <span className="hf-d3-filter-label">Architecture overview</span>
+            <button
+              type="button"
+              onClick={showOverview}
+              disabled={!repository || loading}
+              className="hf-d3-primary-btn"
+            >
+              <Network size={13} /> Load architecture spine
+            </button>
+            {overviewNodes.length > 0 && (
+              <div className="hf-d3-god-list" aria-label="Architecture overview nodes">
+                {uniqueNodesByName(uniqueNodes(overviewNodes)).slice(0, 5).map(node => (
+                  <button type="button" key={node.id} onClick={() => centerNode(node)} title={node.path ?? node.type}>
+                    <span className="hf-d3-node-icon" style={{ color: styleFor(node).stroke }}>
+                      {styleFor(node).icon}
+                    </span>
+                    <span>{node.name}</span>
+                    <small className="hf-d3-conn-count">{node.connectionCount}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="hf-d3-filter-section">
             <span className="hf-d3-filter-label">Exploration mode</span>
@@ -942,33 +961,6 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
                 Risk-marked only
               </button>
             </div>
-          </div>
-        </details>
-
-        {/* Impact & saved views — collapsible */}
-        <details
-          className="hf-d3-section hf-d3-disclosure"
-          open={impactOpen}
-          onToggle={e => setImpactOpen((e.target as HTMLDetailsElement).open)}
-        >
-          <summary>Impact analysis &amp; saved views</summary>
-
-          <div className="hf-d3-filter-section">
-            <span className="hf-d3-filter-label">Planned change</span>
-            <textarea
-              value={impactText}
-              onChange={e => setImpactText(e.target.value)}
-              placeholder="Describe what you plan to change, e.g. &quot;Refactor auth middleware&quot;"
-              rows={2}
-            />
-            <button
-              type="button"
-              disabled={!repository || loading || !impactText.trim()}
-              onClick={showImpact}
-              className="hf-d3-primary-btn"
-            >
-              <AlertTriangle size={13} /> Show impact →
-            </button>
           </div>
 
           <div className="hf-d3-filter-section">
@@ -1137,6 +1129,7 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
               entryPoints={entryPoints}
               onEntry={showEntryGraph}
               lastQuestions={lastQuestions}
+              intent={intent}
             />
           )}
 
@@ -1293,7 +1286,7 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
               <div className="hf-d3-quick-actions">
                 <button
                   type="button"
-                  onClick={() => { setImpactText(`Change ${selected.name}`); setImpactOpen(true); }}
+                  onClick={() => { setImpactText(`Change ${selected.name}`); setAdvancedOpen(false); }}
                 >
                   <AlertTriangle size={12} /> Analyze impact
                 </button>
@@ -1606,7 +1599,8 @@ function EmptyState({
   onOverview,
   entryPoints,
   onEntry,
-  lastQuestions
+  lastQuestions,
+  intent
 }: {
   repository?: Repository;
   onAsk: (text: string) => void;
@@ -1614,6 +1608,7 @@ function EmptyState({
   entryPoints: GraphNode[];
   onEntry: (node: GraphNode) => void;
   lastQuestions: string[];
+  intent: "twin" | "impact";
 }) {
   if (!repository) {
     return (
@@ -1633,11 +1628,12 @@ function EmptyState({
 
   return (
     <div className="hf-d3-empty hf-twin-empty">
-      <Network size={36} strokeWidth={1.2} />
-      <h2>Where do you want to start?</h2>
+      {intent === "impact" ? <AlertTriangle size={36} strokeWidth={1.2} /> : <Network size={36} strokeWidth={1.2} />}
+      <h2>{intent === "impact" ? "What change are you planning?" : "Where do you want to start?"}</h2>
       <p>
-        Choose an intent. HelixFactory will load a small, evidence-backed view —
-        never the entire repository dumped onto the canvas.
+        {intent === "impact"
+          ? "Describe the change in the left panel. HelixFactory will run pre-mortem plus blast radius and show evidence before anyone changes code."
+          : "Choose an intent. HelixFactory will load a small, evidence-backed view — never the entire repository dumped onto the canvas."}
       </p>
 
       {/* Entry points — the hero action when available */}

@@ -5,6 +5,7 @@ const pages = [
   { name: "Home", heading: "HelixFactory Control Plane" },
   { name: "Ingest", heading: "Ingest" },
   { name: "Twin", heading: "Twin" },
+  { name: "Impact", heading: "Impact" },
   { name: "Pre-mortem", heading: "Pre-mortem" },
   { name: "Execution", heading: "Execution" },
   { name: "Q&A", heading: "Q&A" },
