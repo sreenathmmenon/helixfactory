@@ -198,25 +198,28 @@ curl -s http://127.0.0.1:8000/ai/status
 ```
 
 Full workflow smoke checks should exercise real behavior, not only page
-rendering:
+rendering. Use any supported repository that is already available locally or
+that the task explicitly asks to ingest; do not hardcode product behavior around
+a specific public project.
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/repositories/ingest \
   -H 'Content-Type: application/json' \
-  -d '{"url":"https://github.com/pallets/flask"}'
+  -d '{"url":"https://github.com/<owner>/<repo>"}'
 
 curl -s -X POST http://127.0.0.1:8000/safety-reviews \
   -H 'Content-Type: application/json' \
-  -d '{"repositoryId":"<repo-id>","summary":"Modify Flask session and cookie handling for authentication safety","targetRefs":["sessions.py","app.py","cookie"],"changeType":"interface","scenarioId":"flask-session-cookie-safety","depth":2,"relationshipTypes":[]}'
+  -d '{"repositoryId":"<repo-id>","summary":"Describe the planned change","targetRefs":["<file-or-symbol>"],"changeType":"modify","depth":2,"relationshipTypes":[]}'
 
 curl -s -X POST http://127.0.0.1:8000/mcp \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":"review","method":"tools/call","params":{"name":"helix_create_safety_review","arguments":{"repositoryId":"<repo-id>","summary":"Modify Flask session and cookie handling for authentication safety","targetRefs":["sessions.py","app.py","cookie"],"changeType":"interface","depth":2}}}'
+  -d '{"jsonrpc":"2.0","id":"review","method":"tools/call","params":{"name":"helix_create_safety_review","arguments":{"repositoryId":"<repo-id>","summary":"Describe the planned change","targetRefs":["<file-or-symbol>"],"changeType":"modify","depth":2}}}'
 ```
 
-For the Flask safety scenario, a healthy demo should return a HIGH risk,
-`decision.status` of `block`, exact file/line evidence, `requiresHumanApproval:
-true`, and an audit id.
+A healthy safety-review smoke should return structured JSON with a decision,
+risk status, evidence completeness, audit id, and either exact file/line
+evidence or a clear evidence-gap explanation. HIGH and CRITICAL findings should
+return a block decision and require human approval.
 
 E2E browser validation may require local browser permissions. If Playwright is
 blocked by OS sandbox permissions, report that clearly and still run build,
@@ -352,10 +355,9 @@ unless the user explicitly asks for Markdown and the location is allowed.
 - `GET /repositories` is not currently a list endpoint. Use
   `/repositories/{repository_id}` for a known repository and
   `/repositories/ingest` to create/update a repository twin.
-- The current reliable demo repository is `https://github.com/pallets/flask`
-  with the session/cookie safety scenario. Starlette/Django/LangChain/LiteLLM
-  may be useful later, but validate ingestion, evidence quality, and graph
-  readability before using them for demos.
+- Demo repositories are examples only, not product assumptions. Validate
+  ingestion, evidence quality, graph readability, safety-review output, and MCP
+  output before using any public repository for demos.
 
 ## Quality Bar
 
