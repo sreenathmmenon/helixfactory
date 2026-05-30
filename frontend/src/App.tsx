@@ -76,21 +76,21 @@ export default function App() {
     }
   }
   const tabs: Array<[Tab, JSX.Element, string, string]> = [
-    ["home", <Home size={16} />, "Home", "Enterprise AI SDLC command center"],
-    ["ingest", <GitBranch size={16} />, "Ingest", "Build the repository twin"],
-    ["graph", <Network size={16} />, "Twin", "Explore code twin graph"],
-    ["premortem", <ShieldCheck size={16} />, "Pre-mortem", "Block risky changes early"],
-    ["execution", <Activity size={16} />, "Execution", "Govern agent work"],
-    ["qa", <Brain size={16} />, "Q&A", "Ask with cited evidence"],
-    ["review", <Split size={16} />, "Review", "Run specialist gates"],
-    ["security", <LockKeyhole size={16} />, "Security", "Check sensitive risk"],
-    ["audit", <FileSearch size={16} />, "Audit", "Inspect proof chain"],
+    ["home", <Home size={16} />, "Home", "What HelixFactory does and where to start"],
+    ["ingest", <GitBranch size={16} />, "Ingest", "Build the evidence-backed repository twin"],
+    ["graph", <Network size={16} />, "Twin", "Understand architecture and inspect impact"],
+    ["premortem", <ShieldCheck size={16} />, "Pre-mortem", "Predict what can break before code changes"],
+    ["audit", <FileSearch size={16} />, "Audit", "Prove every decision with a chronological evidence trail"],
+    ["qa", <Brain size={16} />, "Q&A", "Ask the twin with cited evidence"],
+    ["execution", <Activity size={16} />, "Execution", "Govern agent work through approval gates"],
+    ["review", <Split size={16} />, "Review", "Run specialist review gates"],
+    ["security", <LockKeyhole size={16} />, "Security", "Check sensitive operational risk"],
     ["history", <Clock3 size={16} />, "History", "Reconstruct architecture state"],
     ["memory", <Brain size={16} />, "Memory", "Reuse organizational knowledge"],
     ["skills", <Sparkles size={16} />, "Skills", "Refine operating memory"]
   ];
-  const primaryTabs: Tab[] = ["home", "ingest", "graph", "premortem", "qa"];
-  const operationTabs: Tab[] = ["execution", "review", "security", "audit", "history", "memory", "skills"];
+  const primaryTabs: Tab[] = ["home", "ingest", "graph", "premortem", "audit"];
+  const operationTabs: Tab[] = ["qa", "execution", "review", "security", "history", "memory", "skills"];
   const activeTab = tabs.find(([key]) => key === tab) ?? tabs[0];
   const tabMap = new Map(tabs.map((item) => [item[0], item]));
 
@@ -130,7 +130,7 @@ export default function App() {
               </button>
             ))}
             <details className="hf-nav-group" open>
-              <summary title="Operations">Ops</summary>
+              <summary title="Advanced workflows">More</summary>
               {operationTabs.map((tabKey) => tabMap.get(tabKey)!).map(([key, icon, label, description]) => (
                 <button aria-label={`${label} ${description}`} className={`hf-nav-item hf-nav-item-secondary ${tab === key ? "active" : ""}`} key={key} onClick={() => setTab(key)} title={description} type="button">
                   <span>{icon}</span>
@@ -166,9 +166,10 @@ export default function App() {
                 <div className="hf-premortem-layout">
                   <div className="hf-panel hf-command-panel">
                     <span className="hf-section-kicker">Evidence-backed risk analysis</span>
-                    <h3>Pre-mortem: what will break?</h3>
+                    <h3>Pre-mortem: should this change be allowed?</h3>
                     <p className="hf-muted" style={{ fontSize: "0.86rem" }}>
-                      Enter a file path, function name, or module. HelixFactory traces the dependency chain and returns evidence-backed findings with file, line, owner, and preventive check.
+                      Enter a file, function, class, or module. HelixFactory traces code evidence and returns
+                      a safety decision: what can break, why, where, and which checks should run first.
                     </p>
                     <label className="hf-field">
                       <span>Change target</span>
@@ -195,7 +196,7 @@ export default function App() {
                     {premortemError && <StatusStates status="failed" message={premortemError} />}
                     {!premortemLoading && !premortemError && !premortem && repository && (
                       <div className="hf-premortem-hint">
-                        <p>Every finding cites a real file, line number, and dependency chain. No guesses.</p>
+                        <p>Every finding must cite a real file, line number, dependency chain, and preventive check. No evidence means no confident claim.</p>
                       </div>
                     )}
                   </div>
@@ -204,7 +205,7 @@ export default function App() {
                       <div className="hf-result-placeholder">
                         <ShieldCheck size={32} strokeWidth={1.2} />
                         <strong>No pre-mortem run yet</strong>
-                        <p>Enter a change target and run the pre-mortem to see evidence-backed findings — what will break, who owns it, what the dependency chain looks like, and what to check before proceeding.</p>
+                        <p>Enter a change target to produce a safety report: risk decision, evidence, dependency chain, preventive checks, and whether human approval is required.</p>
                       </div>
                     )}
                     {premortem && <PreMortemPanel result={premortem} />}

@@ -1636,8 +1636,8 @@ function EmptyState({
       <Network size={36} strokeWidth={1.2} />
       <h2>Where do you want to start?</h2>
       <p>
-        Choose an entry point to trace a real execution path,
-        or load the architecture spine to see the whole system at once.
+        Choose an intent. HelixFactory will load a small, evidence-backed view —
+        never the entire repository dumped onto the canvas.
       </p>
 
       {/* Entry points — the hero action when available */}
@@ -1677,6 +1677,9 @@ function EmptyState({
         )}
         <button type="button" onClick={() => onAsk("What is the most critical component?")} className="hf-d3-empty-secondary">
           <ShieldAlert size={14} /> Most critical component
+        </button>
+        <button type="button" onClick={() => onAsk("What handles routing?")} className="hf-d3-empty-secondary">
+          <Sparkles size={14} /> Ask: routing
         </button>
       </div>
 

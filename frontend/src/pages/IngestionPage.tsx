@@ -51,10 +51,10 @@ export function IngestionPage({ onRepository, onNavigate }: { onRepository: (rep
         {/* ── COMMAND PANEL ── */}
         <div className="hf-panel hf-command-panel">
           <span className="hf-section-kicker">Repository twin</span>
-          <h3>Build the production code twin</h3>
+          <h3>Build the evidence layer</h3>
           <p className="hf-muted">
-            The twin is the evidence layer used by every HelixFactory feature — Q&amp;A, pre-mortem,
-            blast radius, audit, and governed agent execution.
+            Start here. HelixFactory cannot make trusted risk claims until it can cite real files,
+            symbols, imports, calls, ownership, and dependency paths.
           </p>
 
           <label className="hf-field">
@@ -150,12 +150,15 @@ export function IngestionPage({ onRepository, onNavigate }: { onRepository: (rep
             {repository.ingestionStatus === "complete" || repository.ingestionStatus === "partial" ? (
               <div className="hf-ingest-success-actions">
                 <p className="hf-muted hf-ingest-ready-msg">
-                  Twin ready. Navigate to <strong>Twin</strong> to explore the architecture graph,
-                  or run a <strong>Pre-mortem</strong> before making changes.
+                  Twin ready. Next, open the <strong>Twin</strong> to understand the architecture,
+                  or run a <strong>Pre-mortem</strong> before changing risky code.
                 </p>
                 <div className="hf-ingest-action-row">
                   <button type="button" className="tool-button tool-button-primary hf-ingest-nav-btn" onClick={() => onNavigate?.("graph")}>
                     <Network size={15} /> Explore Twin <ArrowRight size={14} />
+                  </button>
+                  <button type="button" className="tool-button hf-ingest-nav-btn" onClick={() => onNavigate?.("premortem")}>
+                    <CheckCircle2 size={15} /> Run pre-mortem
                   </button>
                 </div>
               </div>

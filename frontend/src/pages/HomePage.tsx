@@ -1,4 +1,4 @@
-import { Activity, Brain, ChevronRight, DatabaseZap, GitBranch, Network, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, Brain, ChevronRight, DatabaseZap, FileSearch, GitBranch, Network, ShieldCheck } from "lucide-react";
 import type { AIStatus, Repository } from "../services/types";
 
 type HomeTab = "ingest" | "graph" | "premortem" | "execution" | "qa" | "review" | "security" | "audit" | "history" | "memory" | "skills";
@@ -13,52 +13,52 @@ const CAPABILITIES = [
   {
     icon: Network,
     color: "teal",
-    title: "Living Code Twin",
-    desc: "Parse every function, class, and import into a graph. Every feature is grounded in real code structure — no hallucinations.",
+    title: "Understand",
+    desc: "Build a living code twin from real files, symbols, imports, and calls.",
     tab: "graph" as HomeTab
   },
   {
     icon: ShieldCheck,
     color: "amber",
-    title: "Evidence-backed Pre-mortem",
-    desc: "Predict failure modes before a change is made. Every finding cites file, line, dependency chain, and owner.",
+    title: "Predict",
+    desc: "Run pre-mortems before AI or humans change risky code paths.",
     tab: "premortem" as HomeTab
   },
   {
-    icon: Brain,
+    icon: AlertTriangle,
     color: "blue",
-    title: "Architecture Q&A",
-    desc: "Ask plain-English questions. Get answers cited to the twin — not generated from thin air.",
+    title: "Trace impact",
+    desc: "Show direct and transitive blast radius with evidence paths.",
+    tab: "graph" as HomeTab
+  },
+  {
+    icon: FileSearch,
+    color: "purple",
+    title: "Prove",
+    desc: "Turn platform actions into a chronological git-native audit trail.",
+    tab: "audit" as HomeTab
+  },
+  {
+    icon: Brain,
+    color: "green",
+    title: "Ask",
+    desc: "Answer architecture questions only when cited twin evidence exists.",
     tab: "qa" as HomeTab
   },
   {
     icon: Activity,
-    color: "purple",
-    title: "Governed Execution",
-    desc: "Run AI agents within approval gates. HIGH and CRITICAL changes require human sign-off before execution.",
-    tab: "execution" as HomeTab
-  },
-  {
-    icon: GitBranch,
-    color: "green",
-    title: "Git-native Audit Trail",
-    desc: "Every platform action is a structured git commit. Portable, inspectable, compliance-ready.",
-    tab: "audit" as HomeTab
-  },
-  {
-    icon: Sparkles,
     color: "red",
-    title: "Blast Radius",
-    desc: "Map direct and transitive impact of any proposed change before a single line is written.",
-    tab: "graph" as HomeTab
+    title: "Govern",
+    desc: "Block HIGH and CRITICAL automation until a human approves.",
+    tab: "execution" as HomeTab
   }
 ];
 
 const STEPS = [
-  { n: "01", label: "Ingest",     detail: "Clone a GitHub repo and build the code twin in 30–90 seconds." },
-  { n: "02", label: "Explore",    detail: "Navigate the graph by asking questions or clicking through nodes." },
-  { n: "03", label: "Pre-mortem", detail: "Before any change, predict failures with evidence-backed risk analysis." },
-  { n: "04", label: "Execute",    detail: "Run AI-assisted changes inside approval gates with a full audit trail." }
+  { n: "01", label: "Understand", detail: "Ingest the repository and build the evidence-backed code twin." },
+  { n: "02", label: "Inspect",    detail: "Ask a question or open an entry point; HelixFactory shows only the relevant graph." },
+  { n: "03", label: "Predict",    detail: "Run a pre-mortem to find breakage risk with file, line, and dependency chain." },
+  { n: "04", label: "Govern",     detail: "Block unsafe automation and keep an audit record that managers can trust." }
 ];
 
 export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
@@ -69,24 +69,24 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
       {/* Hero command */}
       <div className="hf-home-command">
         <div className="hf-home-title">
-          <span className="hf-section-kicker">Enterprise AI SDLC Control Plane</span>
+          <span className="hf-section-kicker">AI change safety platform</span>
           <h2 aria-label="HelixFactory Control Plane">
-            Before AI changes your code,<br />
-            HelixFactory makes it<br />
-            <span className="hf-home-hero-accent">understand your system.</span>
+            AI can write code fast.<br />
+            HelixFactory proves<br />
+            <span className="hf-home-hero-accent">what it could break.</span>
           </h2>
           <p>
-            A living code digital twin that grounds every AI action in real architecture evidence —
-            with risk gates, blast radius, and a git-native audit trail built in.
+            Before an AI agent or developer changes production code, HelixFactory builds a living
+            code twin, predicts risk with evidence, shows blast radius, and records the decision trail.
           </p>
           <div className="hf-home-proofline" aria-label="Workspace status">
             <span>
               {hasRepo
-                ? `${(repository!.nodeCount ?? 0).toLocaleString()} twin nodes · ${(repository!.edgeCount ?? 0).toLocaleString()} edges`
-                : "No repository ingested"}
+                ? `${(repository!.nodeCount ?? 0).toLocaleString()} evidence nodes · ${(repository!.edgeCount ?? 0).toLocaleString()} relationships`
+                : "Start by ingesting a repository"}
             </span>
             <span>{aiStatus?.enabled ? `${aiStatus.provider} AI active` : "Local analysis mode"}</span>
-            <span>Human gates for HIGH + CRITICAL risk</span>
+            <span>HIGH + CRITICAL risk blocks automation</span>
           </div>
         </div>
         <div className="hf-action-row hf-home-actions">
@@ -96,7 +96,7 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
             onClick={() => onNavigate(hasRepo ? "premortem" : "ingest")}
           >
             {hasRepo ? <ShieldCheck size={16} /> : <GitBranch size={16} />}
-            {hasRepo ? "Run pre-mortem" : "Ingest a repository"}
+            {hasRepo ? "Analyze a risky change" : "Build the code twin"}
           </button>
           {hasRepo && (
             <button className="tool-button" type="button" onClick={() => onNavigate("graph")}>
@@ -114,7 +114,7 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
         <div className="hf-command-card">
           <div className="hf-panel-header">
             <DatabaseZap size={15} style={{ color: "var(--hf-blue)" }} />
-            <h3 className="hf-panel-title" style={{ fontSize: "0.9rem" }}>How it works</h3>
+              <h3 className="hf-panel-title" style={{ fontSize: "0.9rem" }}>The safety loop</h3>
           </div>
           <div className="hf-step-strip">
             {STEPS.map(step => (
@@ -131,7 +131,7 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
           <div className="hf-command-card hf-home-readiness">
             <div className="hf-panel-header">
               <ShieldCheck size={15} style={{ color: "var(--hf-green)" }} />
-              <h3 className="hf-panel-title" style={{ fontSize: "0.9rem" }}>Active workspace</h3>
+              <h3 className="hf-panel-title" style={{ fontSize: "0.9rem" }}>Ready for analysis</h3>
             </div>
             <dl>
               <div>
@@ -161,6 +161,13 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
             >
               <Network size={15} /> Open Twin <ChevronRight size={14} />
             </button>
+            <button
+              className="tool-button"
+              type="button"
+              onClick={() => onNavigate("premortem")}
+            >
+              <ShieldCheck size={15} /> Run pre-mortem
+            </button>
           </div>
         ) : (
           <div className="hf-command-card hf-home-readiness">
@@ -169,8 +176,8 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
               <h3 className="hf-panel-title" style={{ fontSize: "0.9rem" }}>Get started</h3>
             </div>
             <p style={{ color: "var(--hf-muted)", fontSize: "0.88rem", margin: 0, lineHeight: 1.55 }}>
-              Ingest any public GitHub repository to build the twin. Parsing typically takes 30–90 seconds.
-              All features unlock once ingestion completes.
+              Ingest a public GitHub repository to build the evidence layer. The product becomes useful
+              when the twin can cite real files, symbols, and dependency paths.
             </p>
             <button
               className="tool-button tool-button-primary"
@@ -184,8 +191,13 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
         )}
       </div>
 
-      {/* Capabilities */}
+      {/* Decision modules */}
       <div className="hf-capability-map">
+        <div className="hf-section-heading">
+          <span className="hf-section-kicker">Why teams use it</span>
+          <h3>One flow: understand, predict, prove.</h3>
+          <p>Each module exists to answer a production decision, not to decorate the UI.</p>
+        </div>
         <div className="hf-capability-grid">
           {CAPABILITIES.map(cap => (
             <button

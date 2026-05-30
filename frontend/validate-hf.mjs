@@ -28,7 +28,7 @@ await page.waitForTimeout(3500);
 await page.screenshot({ path: '/tmp/val-01-home.png' });
 
 // ── HOME PAGE ─────────────────────────────────────────────
-check('home hero renders', (await page.locator('.hf-home-title h2').textContent()).includes('Before AI'));
+check('home hero renders', (await page.locator('.hf-home-title h2').textContent()).includes('HelixFactory proves'));
 check('topbar shows repo name', (await page.locator('.hf-top-status').textContent()).includes('pallets/flask'));
 check('6 capability cards', (await page.locator('.hf-capability-card').count()) === 6);
 check('How it works steps', (await page.locator('.hf-step-strip article').count()) === 4);

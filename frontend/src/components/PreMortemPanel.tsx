@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronRight, FileCode2, GitBranch, ShieldAlert, ShieldCheck, ShieldX, TriangleAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight, FileCode2, GitBranch, ShieldAlert, ShieldCheck, ShieldX, TriangleAlert } from "lucide-react";
 import type { PreMortemResult } from "../services/types";
 
 const SEVERITY_CONFIG = {
@@ -21,9 +21,27 @@ export function PreMortemPanel({ result }: { result?: PreMortemResult }) {
 
   const riskKey = result.riskStatus as keyof typeof RISK_BANNER;
   const banner = RISK_BANNER[riskKey] ?? RISK_BANNER.medium;
+  const topFinding = result.findings[0];
+  const blocking = result.requiresHumanApproval || result.riskStatus === "critical" || result.riskStatus === "high" || result.riskStatus === "blocked_insufficient_evidence";
 
   return (
     <section className="hf-pm-panel">
+      <div className="hf-pm-report-head">
+        <div>
+          <span className="hf-section-kicker">Pre-mortem report</span>
+          <h3>{blocking ? "Do not auto-approve this change" : "No blocking risk found in current evidence"}</h3>
+          <p>
+            {topFinding
+              ? `${topFinding.title}. ${topFinding.consequence}`
+              : result.evidenceGaps[0] ?? "HelixFactory found no evidence-backed blocking finding for this target. Standard review still applies."}
+          </p>
+        </div>
+        <div className={`hf-pm-decision ${blocking ? "blocked" : "clear"}`}>
+          {blocking ? <ShieldX size={18} /> : <CheckCircle2 size={18} />}
+          <span>{blocking ? "Human gate required" : "Standard review"}</span>
+        </div>
+      </div>
+
       {/* Risk banner */}
       <div
         className="hf-pm-banner"
@@ -59,6 +77,21 @@ export function PreMortemPanel({ result }: { result?: PreMortemResult }) {
         <div className="hf-pm-stat">
           <span className="hf-pm-stat-num">{result.auditRecordId.slice(0, 8)}</span>
           <span className="hf-pm-stat-label">Audit ID</span>
+        </div>
+      </div>
+
+      <div className="hf-pm-report-guidance">
+        <div>
+          <strong>What to do next</strong>
+          <span>
+            {blocking
+              ? "Review the evidence chain, run the preventive checks, and require a human approval before any AI execution."
+              : "Proceed with normal engineering review, keeping the listed evidence gaps in mind."}
+          </span>
+        </div>
+        <div>
+          <strong>Trust rule</strong>
+          <span>Findings without twin evidence are suppressed. This report only shows risks backed by code structure.</span>
         </div>
       </div>
 

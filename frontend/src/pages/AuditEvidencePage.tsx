@@ -23,9 +23,10 @@ export function AuditEvidencePage({ repository }: { repository?: Repository }) {
       <div className="hf-page-full">
         <div className="hf-panel hf-command-panel">
           <span className="hf-section-kicker">Audit evidence</span>
-          <h3>Chronological proof chain</h3>
+          <h3>Can we prove what happened?</h3>
           <p className="hf-muted" style={{ fontSize: "0.84rem" }}>
-            Every platform action — ingestion, pre-mortem, blast radius, execution — is recorded as a structured entry with inputs, outputs, result, and git commit reference.
+            Load the proof chain that a manager, reviewer, or auditor can read: twin evidence, risk decision,
+            blast radius, approval status, and git commit reference.
           </p>
           <button
             className="tool-button tool-button-primary"
@@ -50,6 +51,21 @@ export function AuditEvidencePage({ repository }: { repository?: Repository }) {
 
           {pkg && (
             <>
+              <div className="hf-audit-summary-strip">
+                <div>
+                  <span>Audit decision</span>
+                  <strong>{pkg.completenessStatus === "complete" ? "Evidence chain complete" : "Evidence chain incomplete"}</strong>
+                </div>
+                <div>
+                  <span>Records</span>
+                  <strong>{pkg.records.length}</strong>
+                </div>
+                <div>
+                  <span>Missing actions</span>
+                  <strong>{pkg.missingActions.length}</strong>
+                </div>
+              </div>
+
               {/* Completeness status */}
               <div className="hf-panel hf-gate-card" style={{
                 borderLeftColor: pkg.completenessStatus === "complete" ? "#52c41a" : "#fadb14",
@@ -62,11 +78,10 @@ export function AuditEvidencePage({ repository }: { repository?: Repository }) {
                     {pkg.completenessStatus.replace(/_/g, " ")}
                   </span>
                 </div>
-                <div className="hf-evidence-row">
-                  <span>Chain</span>
-                  <strong style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.78rem" }}>
-                    {pkg.chronologicalChain.join(" → ") || "empty"}
-                  </strong>
+                <div className="hf-audit-chain" aria-label="Evidence chain">
+                  {(pkg.chronologicalChain.length > 0 ? pkg.chronologicalChain : ["No actions recorded"]).map((item, index) => (
+                    <span key={`${item}-${index}`}>{item.replace(/_/g, " ")}</span>
+                  ))}
                 </div>
                 {pkg.missingActions.length > 0 && (
                   <div className="hf-evidence-row">

@@ -400,8 +400,14 @@ def _question_match_score(graph, node_id: str, data: dict, terms: list[str], que
     if "routing" in question or "route" in question or "router" in question:
         if any(token in haystack for token in ("dispatch", "url_rule", "url_map", "endpoint", "blueprint")):
             score += 22
+        if path.endswith("app.py") or "app.py" in path:
+            score += 34
+        if "blueprint" in haystack:
+            score += 18
+        if name in {"flask", "app", "wsgi_app", "full_dispatch_request", "dispatch_request"}:
+            score += 34
         if "cli" in path and "routes_command" in name:
-            score -= 20
+            score -= 70
     if "auth" in question or "authentication" in question or "authorization" in question:
         if any(token in haystack for token in ("auth", "login", "token", "credential", "permission", "security")):
             score += 18
