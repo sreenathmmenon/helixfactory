@@ -58,7 +58,7 @@ check('sidebar shows flask', (await page.locator('.hf-twin-repo-name').textConte
 check('mode badge present', (await page.locator('.hf-d3-mode').count()) > 0);
 check('default depth 2', (await page.locator('.hf-d3-depth-controls span').textContent()).includes('2'));
 check('6 sidebar sections', (await page.locator('.hf-d3-section').count()) === 6);
-check('Most connected label', (await page.locator('.hf-d3-section label').allTextContents()).some(l => l.includes('Most connected')));
+check('Architecture overview label', (await page.locator('.hf-d3-section label').allTextContents()).some(l => l.includes('Architecture overview')));
 check('symbol search present', (await page.locator('#twin-symbol-search').count()) > 0);
 check('canvas min-height > 400', ((await page.locator('.hf-d3-canvas').boundingBox())?.height ?? 0) > 400);
 check('legend hidden (no graph)', !(await page.locator('.hf-d3-legend').isVisible()));
@@ -105,7 +105,7 @@ await page.screenshot({ path: '/tmp/val-04-graph.png' });
 
 check('sigma canvas rendered', (await page.locator('.sigma-nodes').count()) > 0);
 const statusText = await page.locator('.hf-d3-status-text').textContent();
-check('status bar shows counts', statusText.includes('nodes') && statusText.includes('edges'));
+check('status bar shows counts', statusText.includes('related nodes') && statusText.includes('relationships'));
 check('insight bar visible', await page.locator('.hf-d3-insight-bar').isVisible());
 check('legend visible', await page.locator('.hf-d3-legend').isVisible());
 check('minimap width 160', (await page.locator('.hf-sigma-minimap').getAttribute('width')) === '160');

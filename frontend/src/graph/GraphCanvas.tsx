@@ -828,8 +828,8 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
 
         {/* Architecture overview */}
         <section className="hf-d3-section">
-          <label>Most connected nodes</label>
-          <p className="hf-d3-section-hint">Highest-dependency — architectural spine</p>
+          <label>Architecture overview</label>
+          <p className="hf-d3-section-hint">Start with the few nodes that hold the system together.</p>
           <button
             type="button"
             onClick={showOverview}
@@ -839,8 +839,8 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
             <Network size={13} /> Load architecture spine
           </button>
           {overviewNodes.length > 0 && (
-            <div className="hf-d3-god-list" aria-label="Most connected nodes">
-              {uniqueNodesByName(uniqueNodes(overviewNodes)).slice(0, 8).map(node => (
+            <div className="hf-d3-god-list" aria-label="Architecture overview nodes">
+              {uniqueNodesByName(uniqueNodes(overviewNodes)).slice(0, 5).map(node => (
                 <button type="button" key={node.id} onClick={() => centerNode(node)} title={node.path ?? node.type}>
                   <span className="hf-d3-node-icon" style={{ color: styleFor(node).stroke }}>
                     {styleFor(node).icon}
@@ -1007,8 +1007,8 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
         <div className="hf-d3-status" role="status" aria-live="polite">
           <span className="hf-d3-status-text">
             {graph
-              ? `${centeredLabel} · ${visibleGraph.nodes.length} nodes · ${visibleGraph.edges.length} edges · depth ${depth}`
-              : "No graph loaded"}
+              ? `Viewing ${centeredLabel} — ${visibleGraph.nodes.length} related nodes, ${visibleGraph.edges.length} relationships, depth ${depth}`
+              : "Start by asking a question or choosing an entry point"}
           </span>
           <nav className="hf-d3-breadcrumb" aria-label="Navigation history">
             <button type="button" onClick={clearGraph} className="hf-d3-crumb-home">
@@ -1076,11 +1076,11 @@ export function GraphCanvas({ repository, preMortem }: GraphCanvasProps) {
         )}
 
         {impactResult && (
-          <ImpactSummary result={impactResult} />
+          <ImpactSummary result={impactResult} graphStats={graphStats} />
         )}
 
         {/* Insight bar — only when graph is loaded */}
-        {graph && (
+        {graph && !impactResult && (
           <div className={`hf-d3-insight-bar${mode === "impact" ? " mode-impact" : ""}`} aria-label="Graph statistics">
             {mode === "impact" && (
               <span title="Impact analysis is active — nodes colored by risk severity" style={{ color: "var(--hf-amber)" }}>
@@ -1707,7 +1707,7 @@ function EmptyState({
   );
 }
 
-function ImpactSummary({ result }: { result: PreMortemResult }) {
+function ImpactSummary({ result, graphStats }: { result: PreMortemResult; graphStats: ReturnType<typeof summarizeNodes> }) {
   const blocking = result.riskStatus === "critical" || result.riskStatus === "high" || result.riskStatus === "blocked_insufficient_evidence";
   const topFinding = result.findings[0];
   return (
@@ -1727,12 +1727,12 @@ function ImpactSummary({ result }: { result: PreMortemResult }) {
           <dd>{result.riskStatus.replace(/_/g, " ")}</dd>
         </div>
         <div>
-          <dt>Findings</dt>
-          <dd>{result.findings.length}</dd>
+          <dt>In view</dt>
+          <dd>{graphStats.files} files · {graphStats.functions} fn</dd>
         </div>
         <div>
-          <dt>Evidence gaps</dt>
-          <dd>{result.evidenceGaps.length}</dd>
+          <dt>Evidence</dt>
+          <dd>{result.findings.length} finding{result.findings.length === 1 ? "" : "s"} · {result.evidenceGaps.length} gap{result.evidenceGaps.length === 1 ? "" : "s"}</dd>
         </div>
       </dl>
     </section>

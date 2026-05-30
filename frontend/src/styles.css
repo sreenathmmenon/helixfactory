@@ -1862,7 +1862,10 @@ textarea.hf-input {
 }
 
 .hf-twin-impact-summary {
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, auto);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem 1rem;
   background:
     linear-gradient(135deg, rgba(241, 194, 27, 0.08), rgba(231, 76, 60, 0.035)),
     rgba(10, 14, 21, 0.94);
@@ -1887,8 +1890,8 @@ textarea.hf-input {
 
 .hf-twin-impact-summary dl div {
   min-width: 0;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid rgba(61, 70, 87, 0.68);
+  padding: 0.52rem 0.65rem;
+  border: 1px solid rgba(61, 70, 87, 0.55);
   border-radius: var(--hf-radius-sm);
   background: rgba(7, 10, 16, 0.45);
 }
@@ -1906,7 +1909,7 @@ textarea.hf-input {
   color: white;
   font-size: 0.86rem;
   font-weight: 720;
-  text-transform: capitalize;
+  overflow-wrap: anywhere;
 }
 
 .hf-d3-canvas {
