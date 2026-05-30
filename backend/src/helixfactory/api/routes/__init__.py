@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from helixfactory.api.routes import ai, audit, blast_radius, executions, graph, qa, repositories, skill_refinements
+from helixfactory.api.routes import ai, audit, blast_radius, executions, graph, mcp, qa, repositories, skill_refinements
 from helixfactory.api.routes import premortem
 
 
@@ -15,4 +15,5 @@ def build_router() -> APIRouter:
     router.include_router(audit.router)
     router.include_router(executions.router)
     router.include_router(skill_refinements.router)
+    router.include_router(mcp.router)
     return router
