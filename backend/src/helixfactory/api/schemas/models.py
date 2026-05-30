@@ -211,6 +211,40 @@ class GraphView(CamelModel):
     risk_summary: dict[str, int] = Field(default_factory=dict)
 
 
+class SafetyReviewDecision(CamelModel):
+    status: Literal["allow", "block"]
+    reason: str
+
+
+class SafetyReview(CamelModel):
+    id: str
+    repository_id: str
+    change_id: str
+    scenario_id: str | None = None
+    summary: str
+    change_type: ChangeType
+    target_refs: list[str]
+    premortem: dict[str, Any]
+    blast_radius: GraphView
+    decision: SafetyReviewDecision
+    evidence_refs: list[str] = Field(default_factory=list)
+    suggested_checks: list[str] = Field(default_factory=list)
+    confidence: Literal["high", "medium", "low"]
+    evidence_completeness: Literal["complete", "partial", "insufficient"]
+    approval_status: Literal["not_required", "required", "approved", "rejected", "blocked"]
+    audit_record_id: str
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class SafetyReviewDecisionResult(CamelModel):
+    review_id: str
+    approval_status: Literal["approved", "rejected"]
+    reviewer: str
+    reason: str
+    audit_record_id: str
+    decided_at: datetime = Field(default_factory=utc_now)
+
+
 class AuditRecord(CamelModel):
     id: str
     action_type: Literal["ingestion", "premortem", "blast_radius", "agent_execution", "security_scan", "review", "approval", "merge", "qa", "skill_refinement"]

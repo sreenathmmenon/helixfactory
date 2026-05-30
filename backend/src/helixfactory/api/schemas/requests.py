@@ -22,7 +22,22 @@ class PreMortemRequest(CamelModel):
     repository_id: str
     summary: str
     change_type: ChangeType
-    target_refs: list[str]
+    target_refs: list[str] = Field(min_length=1)
+
+
+class SafetyReviewRequest(CamelModel):
+    repository_id: str
+    summary: str
+    target_refs: list[str] = Field(min_length=1)
+    scenario_id: str | None = None
+    change_type: ChangeType = "modify"
+    depth: int = Field(default=2, ge=1, le=4)
+    relationship_types: list[str] = Field(default_factory=list)
+
+
+class SafetyReviewDecisionRequest(CamelModel):
+    reviewer: str
+    reason: str
 
 
 class BlastRadiusRequest(PreMortemRequest):

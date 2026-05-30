@@ -4,12 +4,12 @@ import { navButton, openMoreNav } from "./helpers";
 const pages = [
   { name: "Home", heading: "HelixFactory Control Plane" },
   { name: "Ingest", heading: "Ingest" },
+  { name: "Assess Change", heading: "Assess Change" },
   { name: "Twin", heading: "Twin" },
   { name: "Impact", heading: "Impact" },
   { name: "Pre-mortem", heading: "Pre-mortem" },
   { name: "Execution", heading: "Execution" },
   { name: "Q&A", heading: "Q&A" },
-  { name: "Review", heading: "Review" },
   { name: "Security", heading: "Security" },
   { name: "Audit", heading: "Audit" },
   { name: "History", heading: "History" },
@@ -17,7 +17,7 @@ const pages = [
   { name: "Skills", heading: "Skills" },
 ];
 
-const secondaryPages = new Set(["Pre-mortem", "Execution", "Q&A", "Review", "Security", "History", "Memory", "Skills"]);
+const secondaryPages = new Set(["Pre-mortem", "Execution", "Q&A", "Security", "History", "Memory", "Skills"]);
 
 test.describe("enterprise visual quality", () => {
   for (const viewport of [

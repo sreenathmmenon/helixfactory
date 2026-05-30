@@ -260,7 +260,7 @@ button:disabled {
   font-weight: 700;
   line-height: 1.2;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
   letter-spacing: 0.02em;
 }
 
@@ -4494,6 +4494,286 @@ textarea.hf-input {
 .hf-evidence-row span { color: var(--hf-faint); font-size: 0.7rem; font-weight: 750; text-transform: uppercase; letter-spacing: 0.04em; }
 .hf-evidence-row strong { color: var(--hf-text-soft); font-size: 0.88rem; font-weight: 550; overflow-wrap: anywhere; }
 
+/* Safety review */
+.hf-safety-page .hf-command-panel {
+  gap: 0.78rem;
+}
+
+.hf-safety-scenario {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.72rem;
+  border: 1px solid rgba(120, 169, 255, 0.34);
+  border-radius: var(--hf-radius-sm);
+  background: rgba(15, 98, 254, 0.1);
+  color: var(--hf-text);
+  text-align: left;
+}
+
+.hf-safety-scenario svg {
+  color: var(--hf-blue);
+}
+
+.hf-safety-scenario strong,
+.hf-safety-scenario small {
+  display: block;
+}
+
+.hf-safety-scenario small {
+  margin-top: 0.12rem;
+  color: var(--hf-muted);
+  font-size: 0.76rem;
+}
+
+.hf-safety-report {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  border: 1px solid rgba(66, 80, 104, 0.9);
+  border-left-width: 3px;
+  border-radius: var(--hf-radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 12rem),
+    rgba(13, 18, 27, 0.98);
+  box-shadow: var(--hf-shadow);
+}
+
+.hf-safety-report.blocked {
+  border-left-color: var(--hf-red);
+}
+
+.hf-safety-report.allowed {
+  border-left-color: var(--hf-green);
+}
+
+.hf-safety-verdict {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hf-safety-verdict h3 {
+  margin: 0;
+  color: white;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.hf-safety-verdict p {
+  max-width: 42rem;
+  margin: 0.42rem 0 0;
+  color: var(--hf-muted);
+}
+
+.hf-safety-decision-mark {
+  display: grid;
+  min-width: 7rem;
+  min-height: 5.25rem;
+  place-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: var(--hf-radius-sm);
+  background: rgba(7, 10, 16, 0.46);
+  color: white;
+}
+
+.hf-safety-report.blocked .hf-safety-decision-mark svg {
+  color: var(--hf-red);
+}
+
+.hf-safety-report.allowed .hf-safety-decision-mark svg {
+  color: var(--hf-green);
+}
+
+.hf-safety-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.hf-safety-metrics div {
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid rgba(48, 59, 79, 0.82);
+  border-radius: var(--hf-radius-sm);
+  background: rgba(7, 10, 16, 0.38);
+}
+
+.hf-safety-metrics span,
+.hf-safety-evidence dt {
+  display: block;
+  color: var(--hf-faint);
+  font-size: 0.68rem;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hf-safety-metrics strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.22rem;
+  color: white;
+  font-size: 0.98rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hf-safety-metrics small {
+  display: block;
+  margin-top: 0.12rem;
+  color: var(--hf-muted);
+  font-size: 0.76rem;
+}
+
+.hf-safety-decision-reason {
+  margin: -0.15rem 0 0;
+  padding: 0.68rem 0.78rem;
+  border: 1px solid rgba(120, 169, 255, 0.18);
+  border-radius: var(--hf-radius-sm);
+  background: rgba(120, 169, 255, 0.06);
+  color: var(--hf-text-soft);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.hf-safety-audit {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem !important;
+}
+
+.hf-safety-section {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.hf-safety-evidence-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hf-safety-evidence {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(48, 59, 79, 0.86);
+  border-radius: var(--hf-radius-sm);
+  background: rgba(7, 10, 16, 0.36);
+}
+
+.hf-safety-evidence > div:first-child {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.hf-safety-evidence strong {
+  min-width: 0;
+  flex: 1;
+  color: white;
+  overflow-wrap: anywhere;
+}
+
+.hf-safety-evidence p {
+  margin: 0;
+  color: var(--hf-muted);
+  font-size: 0.9rem;
+}
+
+.hf-safety-evidence dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.hf-safety-evidence dl > div {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.hf-safety-evidence dd {
+  margin: 0;
+  color: var(--hf-text-soft);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.hf-safety-severity {
+  display: inline-flex;
+  min-height: 1.4rem;
+  align-items: center;
+  padding: 0.16rem 0.46rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 169, 255, 0.3);
+  color: var(--hf-blue);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.hf-safety-severity.high,
+.hf-safety-severity.critical {
+  border-color: rgba(255, 131, 137, 0.36);
+  color: var(--hf-red);
+}
+
+.hf-safety-gaps,
+.hf-safety-checks {
+  display: grid;
+  gap: 0.48rem;
+}
+
+.hf-safety-gaps span,
+.hf-safety-checks span,
+.hf-safety-empty-evidence {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(48, 59, 79, 0.72);
+  border-radius: var(--hf-radius-sm);
+  background: rgba(7, 10, 16, 0.34);
+  color: var(--hf-text-soft);
+  font-size: 0.86rem;
+}
+
+.hf-safety-gaps span svg {
+  color: var(--hf-amber);
+  flex-shrink: 0;
+  margin-top: 0.14rem;
+}
+
+.hf-safety-checks span svg,
+.hf-safety-empty-evidence svg {
+  color: var(--hf-green);
+  flex-shrink: 0;
+  margin-top: 0.14rem;
+}
+
+.hf-safety-approval-grid {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.7fr) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.hf-safety-approval-note {
+  color: var(--hf-muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
 /* Timeline for audit/history */
 .hf-audit-timeline {
   padding-left: 0.25rem;
@@ -4811,6 +5091,21 @@ textarea.hf-input {
   .hf-pm-report-guidance,
   .hf-audit-summary-strip {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hf-safety-verdict,
+  .hf-safety-approval-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hf-safety-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hf-safety-evidence dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.18rem;
   }
 
   .hf-pm-decision {

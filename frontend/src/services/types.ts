@@ -103,6 +103,50 @@ export interface PreMortemResult {
   auditRecordId: string;
 }
 
+export type ChangeType = "add" | "modify" | "rename" | "delete" | "database" | "interface" | "infrastructure" | "dependency";
+
+export interface SafetyReviewRequest {
+  repositoryId: string;
+  summary: string;
+  targetRefs: string[];
+  changeType: ChangeType;
+  scenarioId?: string;
+}
+
+export interface SafetyReviewDecision {
+  status: "allow" | "block";
+  reason: string;
+}
+
+export interface SafetyReviewResult {
+  id: string;
+  repositoryId: string;
+  changeId: string;
+  scenarioId?: string;
+  summary: string;
+  changeType: ChangeType;
+  targetRefs: string[];
+  premortem: PreMortemResult;
+  blastRadius: GraphView;
+  decision: SafetyReviewDecision;
+  evidenceRefs: string[];
+  suggestedChecks: string[];
+  confidence: "high" | "medium" | "low";
+  evidenceCompleteness: "complete" | "partial" | "insufficient";
+  approvalStatus: "not_required" | "required" | "approved" | "rejected" | "blocked";
+  auditRecordId: string;
+  createdAt: string;
+}
+
+export interface SafetyReviewDecisionResult {
+  reviewId: string;
+  approvalStatus: "approved" | "rejected";
+  reviewer: string;
+  reason: string;
+  auditRecordId: string;
+  decidedAt: string;
+}
+
 export interface ArchitectureAnswer {
   answer: string;
   citations: Array<{ sourceType: string; sourceRef: string; path?: string; line?: number }>;

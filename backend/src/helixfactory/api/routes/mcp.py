@@ -14,6 +14,8 @@ from helixfactory.api.schemas.requests import (
     NodeSourceRequest,
     NodeSummaryRequest,
     PreMortemRequest,
+    SafetyReviewDecisionRequest,
+    SafetyReviewRequest,
 )
 from helixfactory.audit.evidence_package import EvidencePackageBuilder
 from helixfactory.graph.blast_radius import BlastRadiusService
@@ -21,6 +23,7 @@ from helixfactory.graph.query_service import GraphQueryService
 from helixfactory.premortem.engine import PreMortemEngine
 from helixfactory.services.errors import HelixFactoryError, NotFoundError
 from helixfactory.services.runtime import runtime
+from helixfactory.services.safety_review import safety_review_service
 
 logger = logging.getLogger("helixfactory.mcp")
 
@@ -77,7 +80,7 @@ TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "helix_assess_change",
-        "description": "Run the evidence-backed pre-mortem safety gate for a planned code change.",
+        "description": "Run the evidence-backed pre-mortem safety gate for a planned code change. Prefer helix_create_safety_review for pre-edit safety review workflows.",
         "inputSchema": {
             "type": "object",
             "required": ["repositoryId", "summary", "targetRefs"],
@@ -86,6 +89,39 @@ TOOLS: list[dict[str, Any]] = [
                 "summary": {"type": "string"},
                 "targetRefs": {"type": "array", "items": {"type": "string"}},
                 "changeType": {"type": "string", "default": "modify"},
+            },
+        },
+    },
+    {
+        "name": "helix_create_safety_review",
+        "description": "Preferred pre-edit tool: create an evidence-backed safety review with risk findings, human-gate status, and blast-radius context before code changes.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["repositoryId", "summary", "targetRefs"],
+            "properties": {
+                "repositoryId": {"type": "string"},
+                "summary": {"type": "string"},
+                "targetRefs": {"type": "array", "items": {"type": "string"}},
+                "changeType": {"type": "string", "default": "modify"},
+                "depth": {"type": "integer", "minimum": 1, "maximum": 4, "default": 2},
+                "relationshipTypes": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+    },
+    {
+        "name": "helix_record_human_decision",
+        "description": "Record a human approval, rejection, or needs-changes decision for a HelixFactory safety review as audit evidence.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["safetyReviewId", "decision", "reviewer", "reason"],
+            "properties": {
+                "safetyReviewId": {"type": "string"},
+                "decision": {"type": "string", "enum": ["approved", "rejected", "needs_changes"]},
+                "reviewer": {"type": "string"},
+                "reason": {"type": "string"},
+                "rationale": {"type": "string"},
+                "repositoryId": {"type": "string"},
+                "auditRecordId": {"type": "string"},
             },
         },
     },
@@ -227,6 +263,10 @@ def _call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         result = graph_service.node_source(NodeSourceRequest(repositoryId=_require(arguments, "repositoryId"), nodeId=_require(arguments, "nodeId")))
     elif name == "helix_assess_change":
         result = premortem_service.run(_premortem_request(arguments))
+    elif name == "helix_create_safety_review":
+        result = _create_safety_review(arguments)
+    elif name == "helix_record_human_decision":
+        result = _record_human_decision(arguments)
     elif name == "helix_blast_radius":
         result = blast_radius_service.calculate(_blast_request(arguments))
     elif name == "helix_should_agent_continue":
@@ -267,14 +307,15 @@ def _get_prompt(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     if name == "pre_mortem_before_edit":
         text = (
             f"Before editing code in repository {repository_id}, assess this planned change: {summary}. "
-            "Call helix_assess_change first. If the result is HIGH, CRITICAL, blocked_insufficient_evidence, "
-            "or requiresHumanApproval is true, stop and ask for human approval. Then call helix_blast_radius "
-            "to explain what can break."
+            "Call helix_create_safety_review first; it is the preferred pre-edit safety tool because it combines "
+            "the evidence-backed pre-mortem, human-gate status, and blast-radius context. If the review is HIGH, "
+            "CRITICAL, blocked_insufficient_evidence, or requiresHumanApproval is true, stop and ask for human "
+            "approval. Record the reviewer outcome with helix_record_human_decision before continuing."
         )
     elif name == "safe_code_change_review":
         text = (
             f"Prepare a reviewer-ready safety report for repository {repository_id}: {summary}. "
-            "Use helix_ask_twin, helix_assess_change, helix_blast_radius, and helix_create_audit_package. "
+            "Use helix_ask_twin, helix_create_safety_review, helix_record_human_decision, and helix_create_audit_package. "
             "Cite file paths, line numbers, dependency chains, gate decision, and uncertainty."
         )
     else:
@@ -291,6 +332,18 @@ def _premortem_request(arguments: dict[str, Any]) -> PreMortemRequest:
     )
 
 
+def _safety_review_request(arguments: dict[str, Any]) -> SafetyReviewRequest:
+    return SafetyReviewRequest(
+        repositoryId=_require(arguments, "repositoryId"),
+        summary=_require(arguments, "summary"),
+        targetRefs=_require_list(arguments, "targetRefs"),
+        scenarioId=arguments.get("scenarioId"),
+        changeType=arguments.get("changeType", "modify"),
+        depth=arguments.get("depth", 2),
+        relationshipTypes=arguments.get("relationshipTypes", []),
+    )
+
+
 def _blast_request(arguments: dict[str, Any]) -> BlastRadiusRequest:
     return BlastRadiusRequest(
         repositoryId=_require(arguments, "repositoryId"),
@@ -300,6 +353,25 @@ def _blast_request(arguments: dict[str, Any]) -> BlastRadiusRequest:
         depth=arguments.get("depth", 2),
         relationshipTypes=arguments.get("relationshipTypes", []),
     )
+
+
+def _create_safety_review(arguments: dict[str, Any]) -> dict[str, Any]:
+    return _dump(safety_review_service.create(_safety_review_request(arguments)))
+
+
+def _record_human_decision(arguments: dict[str, Any]) -> dict[str, Any]:
+    review_id = str(_require_any(arguments, "safetyReviewId", "reviewId", "changeId"))
+    decision = str(_require(arguments, "decision"))
+    normalized = decision.lower().replace("-", "_").replace(" ", "_")
+    request = SafetyReviewDecisionRequest(
+        reviewer=_require(arguments, "reviewer"),
+        reason=_require_any(arguments, "reason", "rationale"),
+    )
+    if normalized == "approved":
+        return _dump(safety_review_service.approve(review_id, request))
+    if normalized in {"rejected", "needs_changes"}:
+        return _dump(safety_review_service.reject(review_id, request))
+    raise NotFoundError("MCP human decision is not supported.", {"decision": decision})
 
 
 def _agent_decision_reason(assessment: Any) -> str:
@@ -339,6 +411,14 @@ def _require(arguments: dict[str, Any], key: str) -> Any:
     if value is None or value == "":
         raise NotFoundError("MCP tool argument is required.", {"argument": key})
     return value
+
+
+def _require_any(arguments: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = arguments.get(key)
+        if value is not None and value != "":
+            return value
+    raise NotFoundError("MCP tool argument is required.", {"argument": keys[0]})
 
 
 def _require_list(arguments: dict[str, Any], key: str) -> list[str]:

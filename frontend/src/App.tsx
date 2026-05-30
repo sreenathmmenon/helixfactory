@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, Brain, Clock3, DatabaseZap, FileSearch, GitBranch, Home, LockKeyhole, Network, ShieldCheck, Sparkles, Split } from "lucide-react";
+import { Activity, AlertTriangle, Brain, ClipboardCheck, Clock3, DatabaseZap, FileSearch, GitBranch, Home, LockKeyhole, Network, ShieldCheck, Sparkles } from "lucide-react";
 import { PreMortemPanel } from "./components/PreMortemPanel";
 import { StatusStates } from "./components/StatusStates";
 import { api } from "./services/api";
@@ -12,7 +12,7 @@ import { AuditEvidencePage } from "./pages/AuditEvidencePage";
 import { ExecutionPage } from "./pages/ExecutionPage";
 import { SkillRefinementPage } from "./pages/SkillRefinementPage";
 import { SecurityPage } from "./pages/SecurityPage";
-import { ReviewPage } from "./pages/ReviewPage";
+import { SafetyReviewPage } from "./pages/SafetyReviewPage";
 import { MemoryPage } from "./pages/MemoryPage";
 import { HistoryPage } from "./pages/HistoryPage";
 
@@ -84,14 +84,14 @@ export default function App() {
     ["audit", <FileSearch size={16} />, "Audit", "Prove every decision with a chronological evidence trail"],
     ["qa", <Brain size={16} />, "Q&A", "Ask the twin with cited evidence"],
     ["execution", <Activity size={16} />, "Execution", "Govern agent work through approval gates"],
-    ["review", <Split size={16} />, "Review", "Run specialist review gates"],
+    ["review", <ClipboardCheck size={16} />, "Assess Change", "Run the change safety decision report"],
     ["security", <LockKeyhole size={16} />, "Security", "Check sensitive operational risk"],
     ["history", <Clock3 size={16} />, "History", "Reconstruct architecture state"],
     ["memory", <Brain size={16} />, "Memory", "Reuse organizational knowledge"],
     ["skills", <Sparkles size={16} />, "Skills", "Refine operating memory"]
   ];
-  const primaryTabs: Tab[] = ["home", "ingest", "impact", "graph", "audit"];
-  const operationTabs: Tab[] = ["premortem", "qa", "execution", "review", "security", "history", "memory", "skills"];
+  const primaryTabs: Tab[] = ["home", "ingest", "review", "impact", "graph", "audit"];
+  const operationTabs: Tab[] = ["premortem", "qa", "execution", "security", "history", "memory", "skills"];
   const activeTab = tabs.find(([key]) => key === tab) ?? tabs[0];
   const tabMap = new Map(tabs.map((item) => [item[0], item]));
 
@@ -217,7 +217,7 @@ export default function App() {
             )}
             {tab === "execution" && <ExecutionPage repository={repository} />}
             {tab === "qa" && <ArchitectureQAPage repository={repository} />}
-            {tab === "review" && <ReviewPage repository={repository} />}
+            {tab === "review" && <SafetyReviewPage repository={repository} />}
             {tab === "security" && <SecurityPage repository={repository} />}
             {tab === "audit" && <AuditEvidencePage repository={repository} />}
             {tab === "history" && <HistoryPage repository={repository} />}

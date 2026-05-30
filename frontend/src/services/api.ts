@@ -1,4 +1,4 @@
-import type { AgentExecution, AIStatus, ArchitectureAnswer, EvidencePackage, GraphCenter, GraphPath, GraphView, NodeContext, NodeSource, NodeSummary, PreMortemResult, Repository, SkillRefinement } from "./types";
+import type { AgentExecution, AIStatus, ArchitectureAnswer, ChangeType, EvidencePackage, GraphCenter, GraphPath, GraphView, NodeContext, NodeSource, NodeSummary, PreMortemResult, Repository, SafetyReviewDecisionResult, SafetyReviewRequest, SafetyReviewResult, SkillRefinement } from "./types";
 
 const configuredApiBase = import.meta.env.VITE_API_BASE;
 const API_BASES = configuredApiBase
@@ -77,7 +77,7 @@ export const api = {
     request("/qa/node-source", { method: "POST", body: JSON.stringify({ repositoryId, nodeId }) }),
   graphPath: (repositoryId: string, sourceNodeId: string, targetNodeId: string, relationshipTypes: string[] = [], maxDepth = 4): Promise<GraphPath> =>
     request("/graph/path", { method: "POST", body: JSON.stringify({ repositoryId, sourceNodeId, targetNodeId, relationshipTypes, maxDepth }) }),
-  runPremortem: (repositoryId: string, summary: string, targetRefs: string[], changeType = "modify"): Promise<PreMortemResult> =>
+  runPremortem: (repositoryId: string, summary: string, targetRefs: string[], changeType: ChangeType = "modify"): Promise<PreMortemResult> =>
     request("/changes/premortem", {
       method: "POST",
       body: JSON.stringify({ repositoryId, summary, targetRefs, changeType })
@@ -87,6 +87,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ repositoryId, summary, targetRefs, changeType: "modify", depth, relationshipTypes })
     }),
+  runSafetyReview: (review: SafetyReviewRequest): Promise<SafetyReviewResult> =>
+    request("/safety-reviews", {
+      method: "POST",
+      body: JSON.stringify({ ...review, depth: 2, relationshipTypes: [] })
+    }),
+  approveSafetyReview: (reviewId: string, reviewer: string, reason: string): Promise<SafetyReviewDecisionResult> =>
+    request(`/safety-reviews/${reviewId}/approve`, { method: "POST", body: JSON.stringify({ reviewer, reason }) }),
+  rejectSafetyReview: (reviewId: string, reviewer: string, reason: string): Promise<SafetyReviewDecisionResult> =>
+    request(`/safety-reviews/${reviewId}/reject`, { method: "POST", body: JSON.stringify({ reviewer, reason }) }),
   askArchitecture: (repositoryId: string, question: string): Promise<ArchitectureAnswer> =>
     request("/qa/architecture", { method: "POST", body: JSON.stringify({ repositoryId, question }) }),
   evidencePackage: (repositoryId?: string): Promise<EvidencePackage> =>

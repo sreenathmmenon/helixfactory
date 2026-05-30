@@ -18,6 +18,8 @@ def test_mcp_lists_change_safety_tools():
         "helix_get_node_context",
         "helix_get_node_source",
         "helix_assess_change",
+        "helix_create_safety_review",
+        "helix_record_human_decision",
         "helix_blast_radius",
         "helix_should_agent_continue",
         "helix_create_audit_package",
@@ -49,5 +51,34 @@ def test_mcp_prompt_guides_agent_to_run_safety_gate():
         },
     )["result"]
     text = result["messages"][0]["content"]["text"]
-    assert "helix_assess_change" in text
+    assert "helix_create_safety_review first" in text
+    assert "helix_record_human_decision" in text
     assert "requiresHumanApproval" in text
+
+
+def test_mcp_create_safety_review_requires_target_refs():
+    client = TestClient(create_app())
+    response = rpc(
+        client,
+        "tools/call",
+        {
+            "name": "helix_create_safety_review",
+            "arguments": {"repositoryId": "repo1", "summary": "modify handler"},
+        },
+    )
+    assert response["error"]["data"]["code"] == "not_found"
+    assert response["error"]["data"]["details"]["argument"] == "targetRefs"
+
+
+def test_mcp_record_human_decision_requires_review_id():
+    client = TestClient(create_app())
+    response = rpc(
+        client,
+        "tools/call",
+        {
+            "name": "helix_record_human_decision",
+            "arguments": {"decision": "approved", "reviewer": "principal-engineer"},
+        },
+    )
+    assert response["error"]["data"]["code"] == "not_found"
+    assert response["error"]["data"]["details"]["argument"] == "safetyReviewId"
