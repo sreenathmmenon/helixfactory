@@ -30,11 +30,11 @@ await page.screenshot({ path: '/tmp/val-01-home.png' });
 // ── HOME PAGE ─────────────────────────────────────────────
 check('home hero renders', (await page.locator('.hf-home-title h2').textContent()).includes('HelixFactory proves'));
 check('topbar shows repo name', (await page.locator('.hf-top-status').textContent()).includes('pallets/flask'));
-check('6 capability cards', (await page.locator('.hf-capability-card').count()) === 6);
+check('3 decision cards', (await page.locator('.hf-capability-card').count()) === 3);
 check('How it works steps', (await page.locator('.hf-step-strip article').count()) === 4);
 
 // ── INGEST PAGE ───────────────────────────────────────────
-await page.locator('.hf-nav-item').nth(1).click();
+await page.getByRole('button', { name: /^Ingest\b/i }).click();
 await page.waitForLoadState('networkidle');
 await page.screenshot({ path: '/tmp/val-02-ingest.png' });
 
@@ -48,7 +48,7 @@ await page.waitForTimeout(500);
 check('invalid URL shows error', (await page.locator('.hf-status-failed').count()) > 0);
 
 // ── TWIN PAGE — INITIAL STATE ─────────────────────────────
-await page.locator('.hf-nav-item').nth(2).click();
+await page.getByRole('button', { name: /^Twin\b/i }).click();
 await page.waitForLoadState('networkidle');
 await page.waitForTimeout(3500);
 await page.screenshot({ path: '/tmp/val-03-twin-empty.png' });

@@ -1706,11 +1706,12 @@ function EmptyState({
 function ImpactSummary({ result, graphStats }: { result: PreMortemResult; graphStats: ReturnType<typeof summarizeNodes> }) {
   const blocking = result.riskStatus === "critical" || result.riskStatus === "high" || result.riskStatus === "blocked_insufficient_evidence";
   const topFinding = result.findings[0];
+  const evidenceRef = topFinding ? `${topFinding.filePath}:${topFinding.line}` : result.evidenceGaps[0] ? "Evidence incomplete" : "No blocking evidence";
   return (
     <section className={`hf-twin-impact-summary risk-${result.riskStatus}`} aria-label="Impact assessment summary">
       <div>
-        <span className="hf-twin-narrative-kicker">Impact assessment</span>
-        <strong>{blocking ? "Human review is required before this change" : "No blocking risk found in visible evidence"}</strong>
+        <span className="hf-twin-narrative-kicker">Change safety decision</span>
+        <strong>{blocking ? "Do not auto-change this code" : "No blocking risk found in visible evidence"}</strong>
         <p>
           {topFinding
             ? `${topFinding.title}. ${topFinding.consequence}`
@@ -1719,15 +1720,23 @@ function ImpactSummary({ result, graphStats }: { result: PreMortemResult; graphS
       </div>
       <dl>
         <div>
+          <dt>Gate</dt>
+          <dd>{result.requiresHumanApproval || blocking ? "Human approval required" : "Automation can continue"}</dd>
+        </div>
+        <div>
           <dt>Risk</dt>
           <dd>{result.riskStatus.replace(/_/g, " ")}</dd>
+        </div>
+        <div>
+          <dt>Evidence</dt>
+          <dd title={evidenceRef}>{evidenceRef}</dd>
         </div>
         <div>
           <dt>In view</dt>
           <dd>{graphStats.files} files · {graphStats.functions} fn</dd>
         </div>
         <div>
-          <dt>Evidence</dt>
+          <dt>Findings</dt>
           <dd>{result.findings.length} finding{result.findings.length === 1 ? "" : "s"} · {result.evidenceGaps.length} gap{result.evidenceGaps.length === 1 ? "" : "s"}</dd>
         </div>
       </dl>

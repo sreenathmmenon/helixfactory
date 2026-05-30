@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Brain, ChevronRight, DatabaseZap, FileSearch, GitBranch, Network, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronRight, DatabaseZap, FileSearch, GitBranch, Network, ShieldCheck } from "lucide-react";
 import type { AIStatus, Repository } from "../services/types";
 
 type HomeTab = "ingest" | "graph" | "impact" | "premortem" | "execution" | "qa" | "review" | "security" | "audit" | "history" | "memory" | "skills";
@@ -11,54 +11,33 @@ interface HomePageProps {
 
 const CAPABILITIES = [
   {
-    icon: Network,
-    color: "teal",
-    title: "Understand",
-    desc: "Build a living code twin from real files, symbols, imports, and calls.",
-    tab: "graph" as HomeTab
-  },
-  {
-    icon: ShieldCheck,
-    color: "amber",
-    title: "Predict",
-    desc: "Run pre-mortems before AI or humans change risky code paths.",
-    tab: "premortem" as HomeTab
-  },
-  {
     icon: AlertTriangle,
     color: "blue",
-    title: "Trace impact",
-    desc: "Show direct and transitive blast radius with evidence paths.",
+    title: "Assess change safety",
+    desc: "Describe a planned AI or human change and get risk, blast radius, gate decision, and evidence.",
     tab: "impact" as HomeTab
+  },
+  {
+    icon: Network,
+    color: "teal",
+    title: "Understand the system",
+    desc: "Ask questions or start from entry points. The graph stays contextual instead of dumping the whole repo.",
+    tab: "graph" as HomeTab
   },
   {
     icon: FileSearch,
     color: "purple",
-    title: "Prove",
-    desc: "Turn platform actions into a chronological git-native audit trail.",
+    title: "Prove the decision",
+    desc: "Keep a chronological audit trail for the risk decision, impact evidence, and human gate.",
     tab: "audit" as HomeTab
-  },
-  {
-    icon: Brain,
-    color: "green",
-    title: "Ask",
-    desc: "Answer architecture questions only when cited twin evidence exists.",
-    tab: "qa" as HomeTab
-  },
-  {
-    icon: Activity,
-    color: "red",
-    title: "Govern",
-    desc: "Block HIGH and CRITICAL automation until a human approves.",
-    tab: "execution" as HomeTab
   }
 ];
 
 const STEPS = [
   { n: "01", label: "Understand", detail: "Ingest the repository and build the evidence-backed code twin." },
-  { n: "02", label: "Inspect",    detail: "Ask a question or open an entry point; HelixFactory shows only the relevant graph." },
-  { n: "03", label: "Predict",    detail: "Run a pre-mortem to find breakage risk with file, line, and dependency chain." },
-  { n: "04", label: "Govern",     detail: "Block unsafe automation and keep an audit record that managers can trust." }
+  { n: "02", label: "Assess", detail: "Describe the planned change; HelixFactory predicts risk and blast radius." },
+  { n: "03", label: "Gate", detail: "HIGH and CRITICAL risk blocks automation until a human reviews the evidence." },
+  { n: "04", label: "Prove", detail: "Every decision becomes a git-native evidence trail for audit and review." }
 ];
 
 export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
@@ -103,8 +82,8 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
               <Network size={16} /> Explore twin
             </button>
           )}
-          <button className="tool-button" type="button" onClick={() => onNavigate("qa")}>
-            <Brain size={16} /> Ask architecture
+          <button className="tool-button" type="button" onClick={() => onNavigate("audit")}>
+            <FileSearch size={16} /> View audit proof
           </button>
         </div>
       </div>
@@ -156,17 +135,17 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
             <button
               className="tool-button tool-button-primary"
               type="button"
-              onClick={() => onNavigate("graph")}
+              onClick={() => onNavigate("impact")}
               style={{ marginTop: "0.25rem" }}
             >
-              <Network size={15} /> Open Twin <ChevronRight size={14} />
+              <AlertTriangle size={15} /> Analyze a change <ChevronRight size={14} />
             </button>
             <button
               className="tool-button"
               type="button"
-              onClick={() => onNavigate("impact")}
+              onClick={() => onNavigate("graph")}
             >
-              <ShieldCheck size={15} /> Assess impact
+              <Network size={15} /> Open Twin
             </button>
           </div>
         ) : (
@@ -194,9 +173,9 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
       {/* Decision modules */}
       <div className="hf-capability-map">
         <div className="hf-section-heading">
-          <span className="hf-section-kicker">Why teams use it</span>
-          <h3>One flow: understand, predict, prove.</h3>
-          <p>Each module exists to answer a production decision, not to decorate the UI.</p>
+          <span className="hf-section-kicker">The buyer reason</span>
+          <h3>One product decision: should this change be allowed?</h3>
+          <p>Everything visible here supports the same enterprise workflow: understand the code, predict what breaks, prove the gate.</p>
         </div>
         <div className="hf-capability-grid">
           {CAPABILITIES.map(cap => (

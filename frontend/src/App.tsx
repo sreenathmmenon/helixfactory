@@ -90,8 +90,8 @@ export default function App() {
     ["memory", <Brain size={16} />, "Memory", "Reuse organizational knowledge"],
     ["skills", <Sparkles size={16} />, "Skills", "Refine operating memory"]
   ];
-  const primaryTabs: Tab[] = ["home", "ingest", "graph", "impact", "premortem", "audit"];
-  const operationTabs: Tab[] = ["qa", "execution", "review", "security", "history", "memory", "skills"];
+  const primaryTabs: Tab[] = ["home", "ingest", "impact", "graph", "audit"];
+  const operationTabs: Tab[] = ["premortem", "qa", "execution", "review", "security", "history", "memory", "skills"];
   const activeTab = tabs.find(([key]) => key === tab) ?? tabs[0];
   const tabMap = new Map(tabs.map((item) => [item[0], item]));
 

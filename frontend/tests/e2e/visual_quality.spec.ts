@@ -17,7 +17,7 @@ const pages = [
   { name: "Skills", heading: "Skills" },
 ];
 
-const secondaryPages = new Set(["Execution", "Q&A", "Review", "Security", "History", "Memory", "Skills"]);
+const secondaryPages = new Set(["Pre-mortem", "Execution", "Q&A", "Review", "Security", "History", "Memory", "Skills"]);
 
 test.describe("enterprise visual quality", () => {
   for (const viewport of [
