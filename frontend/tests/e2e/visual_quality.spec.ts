@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { navButton } from "./helpers";
+import { navButton, openMoreNav } from "./helpers";
 
 const pages = [
   { name: "Home", heading: "HelixFactory Control Plane" },
@@ -16,6 +16,8 @@ const pages = [
   { name: "Skills", heading: "Skills" },
 ];
 
+const secondaryPages = new Set(["Execution", "Q&A", "Review", "Security", "History", "Memory", "Skills"]);
+
 test.describe("enterprise visual quality", () => {
   for (const viewport of [
     { width: 1440, height: 1000, name: "desktop" },
@@ -30,6 +32,7 @@ test.describe("enterprise visual quality", () => {
 
       await page.goto("/");
       for (const item of pages) {
+        if (secondaryPages.has(item.name)) await openMoreNav(page);
         await navButton(page, item.name).click();
         await expect(page.getByRole("heading", { name: new RegExp(item.heading) }).first()).toBeVisible();
         await expect(page.locator(".hf-app-shell")).toBeVisible();

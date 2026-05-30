@@ -129,7 +129,7 @@ export default function App() {
                 <strong>{label}</strong>
               </button>
             ))}
-            <details className="hf-nav-group" open>
+            <details className="hf-nav-group">
               <summary title="Advanced workflows">More</summary>
               {operationTabs.map((tabKey) => tabMap.get(tabKey)!).map(([key, icon, label, description]) => (
                 <button aria-label={`${label} ${description}`} className={`hf-nav-item hf-nav-item-secondary ${tab === key ? "active" : ""}`} key={key} onClick={() => setTab(key)} title={description} type="button">
