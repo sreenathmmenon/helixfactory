@@ -110,6 +110,20 @@ export function AuditEvidencePage({ repository }: { repository?: Repository }) {
 
           {pkg && (
             <>
+              <div className="hf-panel hf-audit-review-frame">
+                <span className="hf-section-kicker">Evidence chain</span>
+                <h3>From proposed change to governed decision</h3>
+                <p>
+                  This package should prove the full safety loop: twin context, pre-mortem findings,
+                  blast radius, policy gate, human decision, and git-backed audit evidence.
+                </p>
+                <div className="hf-audit-review-steps" aria-label="Expected audit evidence chain">
+                  {["Twin", "Risk", "Impact", "Gate", "Human", "Audit"].map((step) => (
+                    <span key={step}>{step}</span>
+                  ))}
+                </div>
+              </div>
+
               <div className="hf-audit-summary-strip">
                 <div className={isComplete ? "is-complete" : "needs-attention"}>
                   <span>Package state</span>

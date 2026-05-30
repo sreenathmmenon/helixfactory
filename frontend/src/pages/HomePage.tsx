@@ -15,7 +15,7 @@ const CAPABILITIES = [
     color: "blue",
     title: "Assess change safety",
     desc: "Describe a planned AI or human change and get risk, blast radius, gate decision, and evidence.",
-    tab: "impact" as HomeTab
+    tab: "review" as HomeTab
   },
   {
     icon: Network,
@@ -72,10 +72,10 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
           <button
             className="tool-button tool-button-primary"
             type="button"
-            onClick={() => onNavigate(hasRepo ? "impact" : "ingest")}
+            onClick={() => onNavigate(hasRepo ? "review" : "ingest")}
           >
             {hasRepo ? <ShieldCheck size={16} /> : <GitBranch size={16} />}
-            {hasRepo ? "Analyze a risky change" : "Build the code twin"}
+            {hasRepo ? "Assess a change" : "Build the code twin"}
           </button>
           {hasRepo && (
             <button className="tool-button" type="button" onClick={() => onNavigate("graph")}>
@@ -135,10 +135,10 @@ export function HomePage({ repository, aiStatus, onNavigate }: HomePageProps) {
             <button
               className="tool-button tool-button-primary"
               type="button"
-              onClick={() => onNavigate("impact")}
+              onClick={() => onNavigate("review")}
               style={{ marginTop: "0.25rem" }}
             >
-              <AlertTriangle size={15} /> Analyze a change <ChevronRight size={14} />
+              <AlertTriangle size={15} /> Assess a change <ChevronRight size={14} />
             </button>
             <button
               className="tool-button"

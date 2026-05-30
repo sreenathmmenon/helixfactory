@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, FileCode2, GitBranch, ShieldCheck, ShieldX, Stamp, XCircle } from "lucide-react";
+import { AlertTriangle, Bot, CheckCircle2, ClipboardCheck, FileCode2, GitBranch, GitPullRequestArrow, ListChecks, Network, ShieldCheck, ShieldX, Stamp, XCircle } from "lucide-react";
 import { StatusStates } from "../components/StatusStates";
 import { api } from "../services/api";
 import type { ChangeType, GraphNode, Repository, SafetyReviewResult } from "../services/types";
@@ -19,6 +19,17 @@ const CHANGE_TYPES: Array<{ value: ChangeType; label: string }> = [
 ];
 
 type ApprovalState = "approved" | "rejected";
+type SafetyTab = "graph" | "impact" | "audit" | "premortem" | "qa" | "execution" | "ingest";
+
+const GUIDED_STEPS = [
+  "AI agent proposes change",
+  "Twin resolves affected code",
+  "Pre-mortem predicts failure modes",
+  "Blast radius maps impact",
+  "Policy allows or blocks",
+  "Human gate records decision",
+  "Audit evidence is created"
+];
 
 function splitTargets(value: string) {
   return value
@@ -73,7 +84,27 @@ function formatRisk(value: string) {
   return value.replace(/_/g, " ");
 }
 
-export function SafetyReviewPage({ repository }: { repository?: Repository }) {
+function uniquePaths(result: SafetyReviewResult) {
+  const paths = new Set<string>();
+  result.premortem.findings.forEach((finding) => paths.add(finding.filePath));
+  result.blastRadius.nodes.forEach((node) => {
+    if (node.path) paths.add(node.path);
+  });
+  return Array.from(paths).slice(0, 6);
+}
+
+function mcpSummary(result: SafetyReviewResult) {
+  return [
+    { label: "Tool", value: "helix_create_safety_review" },
+    { label: "Decision", value: result.decision.status },
+    { label: "Risk", value: result.premortem.riskStatus },
+    { label: "Approval", value: result.approvalStatus },
+    { label: "Evidence", value: `${result.premortem.findings.length} finding${result.premortem.findings.length === 1 ? "" : "s"}` },
+    { label: "Audit", value: result.auditRecordId }
+  ];
+}
+
+export function SafetyReviewPage({ repository, onNavigate }: { repository?: Repository; onNavigate?: (tab: SafetyTab) => void }) {
   const [summary, setSummary] = useState("");
   const [targets, setTargets] = useState("");
   const [changeType, setChangeType] = useState<ChangeType>("modify");
@@ -90,6 +121,7 @@ export function SafetyReviewPage({ repository }: { repository?: Repository }) {
   const completeness = evidenceCompleteness(result);
   const blocked = result ? riskBlocks(result) : false;
   const checks = result ? result.suggestedChecks : [];
+  const evidencePaths = result ? uniquePaths(result) : [];
 
   function useFlaskScenario() {
     setSummary(FLASK_SCENARIO.summary);
@@ -148,11 +180,20 @@ export function SafetyReviewPage({ repository }: { repository?: Repository }) {
             Run one decision report from twin evidence: risk, impact, required checks, and reviewer disposition.
           </p>
 
+          <div className="hf-safety-flow" aria-label="Guided safety workflow">
+            {GUIDED_STEPS.map((step, index) => (
+              <span key={step} className={result ? "complete" : index === 0 ? "active" : ""}>
+                <strong>{index + 1}</strong>
+                {step}
+              </span>
+            ))}
+          </div>
+
           <button className="hf-safety-scenario" type="button" onClick={useFlaskScenario}>
             <ShieldCheck size={16} />
             <span>
               <strong>{FLASK_SCENARIO.label}</strong>
-              <small>Preload auth session and cookie targets</small>
+              <small>Reliable demo: session/cookie change, twin evidence, gate, audit</small>
             </span>
           </button>
 
@@ -207,6 +248,12 @@ export function SafetyReviewPage({ repository }: { repository?: Repository }) {
               <ClipboardCheck size={32} strokeWidth={1.2} />
               <strong>No safety review run yet</strong>
               <p>Choose the Flask session/cookie scenario or enter a planned change and targets. The report will show one allow/block decision with evidence and checks.</p>
+              <div className="hf-safety-placeholder-grid">
+                <span><Network size={14} /> Twin resolves exact code</span>
+                <span><AlertTriangle size={14} /> Pre-mortem predicts failure modes</span>
+                <span><GitPullRequestArrow size={14} /> PR/CI gate shows allow or block</span>
+                <span><Bot size={14} /> MCP returns the same decision to agents</span>
+              </div>
             </div>
           )}
 
@@ -255,6 +302,86 @@ export function SafetyReviewPage({ repository }: { repository?: Repository }) {
                 <p className="hf-safety-decision-reason">{result.decision.reason}</p>
               </section>
 
+              <section className="hf-safety-system-grid" aria-label="Change safety system outputs">
+                <article className={`hf-panel hf-safety-gate-sim ${blocked ? "blocked" : "allowed"}`}>
+                  <div className="hf-gate-card-header">
+                    <GitPullRequestArrow size={16} />
+                    <span className="hf-gate-card-title">PR / CI gate</span>
+                    <span className={`hf-exec-status ${blocked ? "blocked" : "completed"}`}>
+                      {blocked ? "would block" : "would pass"}
+                    </span>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>CI result</dt>
+                      <dd>{blocked ? "This PR would be blocked before merge." : "This PR can continue with standard checks."}</dd>
+                    </div>
+                    <div>
+                      <dt>Reviewer</dt>
+                      <dd>{blocked ? "Required for HIGH/CRITICAL or incomplete evidence." : "Standard reviewer policy applies."}</dd>
+                    </div>
+                    <div>
+                      <dt>Audit evidence</dt>
+                      <dd>{result.auditRecordId}</dd>
+                    </div>
+                  </dl>
+                </article>
+
+                <article className="hf-panel hf-safety-mcp-card">
+                  <div className="hf-gate-card-header">
+                    <Bot size={16} />
+                    <span className="hf-gate-card-title">MCP agent output</span>
+                    <span className={`hf-exec-status ${blocked ? "blocked" : "completed"}`}>
+                      {result.decision.status}
+                    </span>
+                  </div>
+                  <div className="hf-safety-mcp-grid">
+                    {mcpSummary(result).map((item) => (
+                      <div key={item.label}>
+                        <span>{item.label}</span>
+                        <strong>{item.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <p>An integrated AI coding agent receives this same structured decision before editing code.</p>
+                </article>
+              </section>
+
+              <section className="hf-panel hf-safety-section">
+                <div className="hf-gate-card-header">
+                  <Network size={16} />
+                  <span className="hf-gate-card-title">Twin context used</span>
+                  <span className="hf-exec-status completed">{result.blastRadius.nodes.length} nodes</span>
+                </div>
+                <div className="hf-safety-context-grid">
+                  <div>
+                    <span>Affected code</span>
+                    <strong>{evidencePaths.length} file path{evidencePaths.length === 1 ? "" : "s"} resolved</strong>
+                  </div>
+                  <div>
+                    <span>Blast radius</span>
+                    <strong>{result.blastRadius.nodes.length} nodes, {result.blastRadius.edges.length} relationships</strong>
+                  </div>
+                  <div>
+                    <span>Evidence quality</span>
+                    <strong>{completeness.label}</strong>
+                  </div>
+                </div>
+                {evidencePaths.length > 0 && (
+                  <div className="hf-safety-path-list">
+                    {evidencePaths.map((path) => <span key={path}>{path}</span>)}
+                  </div>
+                )}
+                <div className="hf-action-row">
+                  <button className="tool-button" type="button" onClick={() => onNavigate?.("graph")}>
+                    <Network size={15} /> Inspect in Twin
+                  </button>
+                  <button className="tool-button" type="button" onClick={() => onNavigate?.("audit")}>
+                    <Stamp size={15} /> View audit package
+                  </button>
+                </div>
+              </section>
+
               <section className="hf-panel hf-safety-section">
                 <div className="hf-gate-card-header">
                   <FileCode2 size={16} />
@@ -301,7 +428,7 @@ export function SafetyReviewPage({ repository }: { repository?: Repository }) {
                   <span className="hf-gate-card-title">Required checks</span>
                 </div>
                 <div className="hf-safety-checks">
-                  {checks.map((check) => <span key={check}><ClipboardCheck size={13} /> {check}</span>)}
+                  {checks.map((check) => <span key={check}><ListChecks size={13} /> {check}</span>)}
                 </div>
               </section>
 
@@ -332,6 +459,12 @@ export function SafetyReviewPage({ repository }: { repository?: Repository }) {
                   </button>
                   <span className="hf-safety-approval-note">Audit: {approvalAudit ?? result.auditRecordId}</span>
                 </div>
+                {approvalAudit && (
+                  <div className="hf-safety-learning-signal">
+                    <CheckCircle2 size={14} />
+                    <span>Reviewer outcome recorded as an audit-backed learning signal for future policy refinement.</span>
+                  </div>
+                )}
               </section>
             </>
           )}

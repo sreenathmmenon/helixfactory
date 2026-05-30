@@ -160,7 +160,7 @@ export default function App() {
               </aside>
             )}
             {tab === "home" && <HomePage repository={repository} aiStatus={aiStatus} onNavigate={setTab} />}
-            {tab === "ingest" && <IngestionPage onRepository={(repo) => { setRepository(repo); saveRepo(repo); setTab("graph"); }} onNavigate={(t) => setTab(t as Tab)} />}
+            {tab === "ingest" && <IngestionPage onRepository={(repo) => { setRepository(repo); saveRepo(repo); setTab("review"); }} onNavigate={(t) => setTab(t as Tab)} />}
             {tab === "graph" && <BlastRadiusPage repository={repository} preMortem={premortem} intent="twin" />}
             {tab === "impact" && <BlastRadiusPage repository={repository} preMortem={premortem} intent="impact" />}
             {tab === "premortem" && (
@@ -217,7 +217,7 @@ export default function App() {
             )}
             {tab === "execution" && <ExecutionPage repository={repository} />}
             {tab === "qa" && <ArchitectureQAPage repository={repository} />}
-            {tab === "review" && <SafetyReviewPage repository={repository} />}
+            {tab === "review" && <SafetyReviewPage repository={repository} onNavigate={(t) => setTab(t as Tab)} />}
             {tab === "security" && <SecurityPage repository={repository} />}
             {tab === "audit" && <AuditEvidencePage repository={repository} />}
             {tab === "history" && <HistoryPage repository={repository} />}

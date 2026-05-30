@@ -11,6 +11,9 @@ test("safety review page renders scenario controls", async ({ page }) => {
   await expect(plannedChange).toBeVisible();
   await expect(changeTargets).toBeVisible();
   await expect(page.getByRole("button", { name: /Flask session\/cookie/i })).toBeVisible();
+  await expect(page.getByLabel("Guided safety workflow")).toBeVisible();
+  await expect(page.getByText("PR/CI gate shows allow or block")).toBeVisible();
+  await expect(page.getByText("MCP returns the same decision to agents")).toBeVisible();
 
   await page.getByRole("button", { name: /Flask session\/cookie/i }).click();
   await expect(plannedChange).toHaveValue(/Flask session and cookie/);
